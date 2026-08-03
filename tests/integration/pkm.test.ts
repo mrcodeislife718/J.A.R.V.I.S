@@ -7,15 +7,22 @@ import { DeterministicEmbeddingClient } from "../../src/pkm/embedding.js";
 import { InMemoryPkmRepository } from "../../src/pkm/in-memory-repository.js";
 import { NoopSemanticIndex } from "../../src/pkm/semantic-index.js";
 
-class UnusedModelClient implements ModelClient {
+class CaptureModelClient implements ModelClient {
+  readonly requests: ModelRequest[] = [];
+
   async generate(request: ModelRequest): Promise<ModelResponse> {
-    return { text: "Known: test response.", model: request.model };
+    this.requests.push(request);
+    const capability = request.prompt.match(/CURRENT CAPABILITY: ([^\n]+)/u)?.[1] ?? "unknown";
+    const text = capability === "core.report"
+      ? "Known: the persistent workspace state was provided to the mission. Inferred: the project can resume from approved decisions. Missing: no external evidence was supplied."
+      : `Known: completed ${capability} using the supplied workspace state. Inferred: the artifact is ready for review. Missing: external evidence.`;
+    return { text, model: request.model, inputTokens: 120, outputTokens: 45, totalDurationMs: 3 };
   }
 }
 
-const buildPkmApp = () =>
+const buildPkmApp = (modelClient: ModelClient = new CaptureModelClient()) =>
   buildApp({
-    modelClient: new UnusedModelClient(),
+    modelClient,
     pkmRepository: new InMemoryPkmRepository(),
     blobStore: new InMemoryBlobStore(),
     embeddingClient: new DeterministicEmbeddingClient(),
@@ -136,5 +143,51 @@ test("rejected knowledge never appears in approved resume state", async () => {
     url: `/v1/pkm/workspaces/${workspaceId}/resume`,
   });
   assert.equal(resume.json().resume.decisions.length, 0);
+  await app.close();
+});
+
+test("approved workspace state is compiled into a personal-knowledge mission", async () => {
+  const model = new CaptureModelClient();
+  const app = buildPkmApp(model);
+  const workspace = await app.inject({
+    method: "POST",
+    url: "/v1/pkm/workspaces",
+    payload: { name: "Mission continuity" },
+  });
+  const workspaceId = workspace.json().workspace.id as string;
+  const ingest = await app.inject({
+    method: "POST",
+    url: `/v1/pkm/workspaces/${workspaceId}/sources`,
+    payload: {
+      title: "Approved direction",
+      kind: "note",
+      authorship: "user",
+      content: "Decision: Continue with PostgreSQL-backed exact-state project resumption.",
+    },
+  });
+  const candidateId = ingest.json().result.extractedItems[0].id as string;
+  await app.inject({
+    method: "POST",
+    url: `/v1/pkm/workspaces/${workspaceId}/items/${candidateId}/approve`,
+    payload: { reviewedBy: "Charles Castillo" },
+  });
+
+  const mission = await app.inject({
+    method: "POST",
+    url: "/v1/missions",
+    payload: {
+      domain: "personal-knowledge",
+      objective: "Resume this workspace and identify the established direction",
+      requestedCapabilities: ["knowledge.resume"],
+      inputs: { workspaceId },
+    },
+  });
+  assert.equal(mission.statusCode, 201);
+  assert.equal(mission.json().mission.status, "completed");
+  assert.ok(
+    model.requests.some((request) =>
+      request.prompt.includes("Continue with PostgreSQL-backed exact-state project resumption"),
+    ),
+  );
   await app.close();
 });
