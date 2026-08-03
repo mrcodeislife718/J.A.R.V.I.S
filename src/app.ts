@@ -2,6 +2,15 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import { z } from "zod";
 import { OllamaClient } from "./adapters/ollama-client.js";
+import { InMemoryAnalyticsRepository } from "./analytics/in-memory-repository.js";
+import { PostgresAnalyticsRepository } from "./analytics/postgres-repository.js";
+import {
+  RefusingAnalyticsQueryExecutor,
+  type AnalyticsQueryExecutor,
+} from "./analytics/query-executor.js";
+import type { AnalyticsRepository } from "./analytics/repository.js";
+import { registerAnalyticsRoutes } from "./analytics/routes.js";
+import { AnalyticsService } from "./analytics/service.js";
 import { listCapabilities } from "./capabilities/registry.js";
 import { config } from "./config/env.js";
 import { ContextCompiler } from "./core/context-compiler.js";
@@ -81,6 +90,8 @@ export interface BuildAppOptions {
   semanticIndex?: SemanticIndex;
   infrastructureRepository?: InfrastructureRepository;
   infrastructureActionExecutor?: InfrastructureActionExecutor;
+  analyticsRepository?: AnalyticsRepository;
+  analyticsQueryExecutor?: AnalyticsQueryExecutor;
   logger?: boolean;
 }
 
@@ -128,7 +139,8 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
 
   const needsDatabasePool =
     (!options.pkmRepository && config.PKM_STORAGE_DRIVER === "postgres") ||
-    (!options.infrastructureRepository && config.INFRA_STORAGE_DRIVER === "postgres");
+    (!options.infrastructureRepository && config.INFRA_STORAGE_DRIVER === "postgres") ||
+    (!options.analyticsRepository && config.ANALYTICS_STORAGE_DRIVER === "postgres");
   const databasePool: Pool | null = needsDatabasePool
     ? createPostgresPool(config.DATABASE_URL)
     : null;
@@ -178,6 +190,23 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   );
   contextCompiler.setInfrastructureContextProvider(infrastructureService);
 
+  let analyticsRepository = options.analyticsRepository;
+  if (!analyticsRepository) {
+    analyticsRepository = config.ANALYTICS_STORAGE_DRIVER === "postgres"
+      ? new PostgresAnalyticsRepository(databasePool as Pool)
+      : new InMemoryAnalyticsRepository();
+  }
+  const analyticsQueryExecutor = options.analyticsQueryExecutor ?? new RefusingAnalyticsQueryExecutor();
+  const analyticsService = new AnalyticsService(
+    analyticsRepository,
+    analyticsQueryExecutor,
+    {
+      maxRows: config.ANALYTICS_MAX_QUERY_ROWS,
+      timeoutMs: config.ANALYTICS_QUERY_TIMEOUT_MS,
+    },
+  );
+  contextCompiler.setAnalyticsContextProvider(analyticsService);
+
   if (databasePool) {
     app.addHook("onClose", async () => {
       await databasePool.end();
@@ -188,7 +217,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     status: "ok",
     system: "J.A.R.V.I.S",
     expansion: "Just A Regular Virtual Intelligence System",
-    version: "0.3.0",
+    version: "0.4.0",
     domains: DOMAIN_IDS.length,
     personalKnowledge: {
       storage: options.pkmRepository ? "injected" : config.PKM_STORAGE_DRIVER,
@@ -197,6 +226,12 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     infrastructureAdministration: {
       storage: options.infrastructureRepository ? "injected" : config.INFRA_STORAGE_DRIVER,
       actionExecutor: options.infrastructureActionExecutor ? "injected" : "record-only",
+    },
+    analytics: {
+      storage: options.analyticsRepository ? "injected" : config.ANALYTICS_STORAGE_DRIVER,
+      queryExecutor: options.analyticsQueryExecutor ? "injected" : "refusing",
+      maxRows: config.ANALYTICS_MAX_QUERY_ROWS,
+      timeoutMs: config.ANALYTICS_QUERY_TIMEOUT_MS,
     },
   }));
 
@@ -294,5 +329,6 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
 
   registerPkmRoutes(app, pkmService);
   registerInfrastructureRoutes(app, infrastructureService, config.INFRA_AGENT_TOKEN);
+  registerAnalyticsRoutes(app, analyticsService);
   return app;
 };

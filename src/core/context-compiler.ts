@@ -1,3 +1,4 @@
+import type { AnalyticsMissionContext } from "../analytics/types.js";
 import { getDomainManifest } from "../domains/registry.js";
 import type { InfrastructureMissionContext } from "../infrastructure/types.js";
 import type { PkmResumePacket } from "../pkm/types.js";
@@ -10,6 +11,10 @@ export interface PersistentContextProvider {
 
 export interface InfrastructureContextProvider {
   buildMissionContext(nodeId?: string): Promise<InfrastructureMissionContext>;
+}
+
+export interface AnalyticsContextProvider {
+  buildMissionContext(sourceId?: string, metricId?: string): Promise<AnalyticsMissionContext>;
 }
 
 const compactItems = (
@@ -69,6 +74,7 @@ const resumeEvidence = (packet: PkmResumePacket): EvidenceReference[] => {
 export class ContextCompiler {
   private persistentContextProvider: PersistentContextProvider | null = null;
   private infrastructureContextProvider: InfrastructureContextProvider | null = null;
+  private analyticsContextProvider: AnalyticsContextProvider | null = null;
 
   constructor(private readonly memoryRepository: MemoryRepository) {}
 
@@ -78,6 +84,10 @@ export class ContextCompiler {
 
   setInfrastructureContextProvider(provider: InfrastructureContextProvider): void {
     this.infrastructureContextProvider = provider;
+  }
+
+  setAnalyticsContextProvider(provider: AnalyticsContextProvider): void {
+    this.analyticsContextProvider = provider;
   }
 
   async compile(mission: MissionRecord): Promise<ContextPacket> {
@@ -139,6 +149,31 @@ export class ContextCompiler {
         uncertainties.push({
           label: "missing",
           statement: `Infrastructure context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+        });
+      }
+    }
+
+    if (mission.request.domain === "analytics" && this.analyticsContextProvider) {
+      const requestedSourceId = mission.request.inputs.sourceId;
+      const requestedMetricId = mission.request.inputs.metricId;
+      try {
+        const context = await this.analyticsContextProvider.buildMissionContext(
+          typeof requestedSourceId === "string" ? requestedSourceId : undefined,
+          typeof requestedMetricId === "string" ? requestedMetricId : undefined,
+        );
+        workingState.push(`Governed analytics registry and evidence state:\n${context.summary}`);
+        evidence.push(...context.evidence.map((reference) => ({
+          ...reference,
+          trust: "internal" as const,
+        })));
+        uncertainties.push(...context.uncertainties.map((statement) => ({
+          label: "missing" as const,
+          statement,
+        })));
+      } catch (error) {
+        uncertainties.push({
+          label: "missing",
+          statement: `Analytics context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
         });
       }
     }
