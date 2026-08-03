@@ -5,6 +5,8 @@ if (existsSync(".env")) {
   process.loadEnvFile(".env");
 }
 
+const ratio = z.coerce.number().min(0).max(1);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().default("0.0.0.0"),
@@ -27,6 +29,18 @@ const envSchema = z.object({
   QDRANT_COLLECTION: z.string().min(1).default("jarvis_pkm"),
   PKM_SEMANTIC_INDEX: z.enum(["disabled", "qdrant"]).default("disabled"),
   PKM_BLOB_DIR: z.string().min(1).default("data/pkm/blobs"),
+  INFRA_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
+  INFRA_AGENT_TOKEN: z.string().min(12).default("development-only-change-me"),
+  INFRA_STALE_AFTER_MS: z.coerce.number().int().min(10_000).default(90_000),
+  INFRA_CPU_WARNING: ratio.default(0.85),
+  INFRA_CPU_CRITICAL: ratio.default(0.95),
+  INFRA_MEMORY_WARNING: ratio.default(0.85),
+  INFRA_MEMORY_CRITICAL: ratio.default(0.95),
+  INFRA_DISK_WARNING: ratio.default(0.85),
+  INFRA_DISK_CRITICAL: ratio.default(0.95),
+  INFRA_BACKUP_STALE_AFTER_MS: z.coerce.number().int().min(60_000).default(604_800_000),
+  INFRA_CONTROL_URL: z.url().default("http://127.0.0.1:3000"),
+  INFRA_AGENT_INTERVAL_MS: z.coerce.number().int().min(5_000).default(30_000),
 });
 
 export type RuntimeConfig = z.infer<typeof envSchema>;
