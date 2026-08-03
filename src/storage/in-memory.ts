@@ -17,48 +17,6 @@ export interface AuditRepository {
   listForMission(missionId: string): Promise<AuditEvent[]>;
 }
 
-export class InMemoryDataStore implements MissionRepository, MemoryRepository, AuditRepository {
-  private readonly missions = new Map<string, MissionRecord>();
-  private readonly memories = new Map<string, MemoryRecord>();
-  private readonly auditEvents: AuditEvent[] = [];
-
-  async save(record: MissionRecord | MemoryRecord): Promise<void> {
-    if ("request" in record) {
-      this.missions.set(record.id, structuredClone(record));
-      return;
-    }
-    this.memories.set(record.id, structuredClone(record));
-  }
-
-  async get(id: string): Promise<MissionRecord | MemoryRecord | null> {
-    const mission = this.missions.get(id);
-    if (mission) return structuredClone(mission);
-    const memory = this.memories.get(id);
-    return memory ? structuredClone(memory) : null;
-  }
-
-  async list(status?: MemoryRecord["status"]): Promise<MissionRecord[] | MemoryRecord[]> {
-    if (status) {
-      return [...this.memories.values()]
-        .filter((record) => record.status === status)
-        .map((record) => structuredClone(record));
-    }
-    return [...this.missions.values()]
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .map((record) => structuredClone(record));
-  }
-
-  async append(event: AuditEvent): Promise<void> {
-    this.auditEvents.push(structuredClone(event));
-  }
-
-  async listForMission(missionId: string): Promise<AuditEvent[]> {
-    return this.auditEvents
-      .filter((event) => event.missionId === missionId)
-      .map((event) => structuredClone(event));
-  }
-}
-
 export class InMemoryMissionRepository implements MissionRepository {
   private readonly records = new Map<string, MissionRecord>();
 
