@@ -29,66 +29,66 @@ import type {
 } from "./types.js";
 
 export interface CreateAnalyticsSourceInput {
-  id?: string;
+  id?: string | undefined;
   name: string;
-  description?: string;
+  description?: string | undefined;
   kind: AnalyticsSourceKind;
-  sensitivity?: AnalyticsSensitivity;
-  requiresApproval?: boolean;
-  endpointLabel?: string;
-  credentialRef?: string;
+  sensitivity?: AnalyticsSensitivity | undefined;
+  requiresApproval?: boolean | undefined;
+  endpointLabel?: string | undefined;
+  credentialRef?: string | undefined;
   owner: string;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
+  tags?: string[] | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface CreateSchemaSnapshotInput {
   sourceId: string;
   tables: AnalyticsTableSchema[];
   observedBy: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface CreateMetricInput {
-  id?: string;
+  id?: string | undefined;
   sourceId: string;
   dataset: string;
   name: string;
   description: string;
   owner: string;
-  unit?: string;
+  unit?: string | undefined;
   grain: string;
-  dimensions?: string[];
-  filters?: Record<string, AnalyticsScalar>;
+  dimensions?: string[] | undefined;
+  filters?: Record<string, AnalyticsScalar> | undefined;
   calculation: AnalyticsMetricCalculation;
 }
 
 export interface ExecuteAnalyticsQueryInput {
   sourceId: string;
   sql: string;
-  parameters?: AnalyticsScalar[];
+  parameters?: AnalyticsScalar[] | undefined;
   purpose: string;
   requestedBy: string;
-  authorizedBy?: string;
-  maxRows?: number;
-  timeoutMs?: number;
-  metadata?: Record<string, unknown>;
+  authorizedBy?: string | undefined;
+  maxRows?: number | undefined;
+  timeoutMs?: number | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface CreateQualityRuleInput {
-  id?: string;
+  id?: string | undefined;
   sourceId: string;
   dataset: string;
   name: string;
   kind: AnalyticsQualityRule["kind"];
   column: string;
-  configuration?: Record<string, unknown>;
-  maximumFailureRatio?: number;
+  configuration?: Record<string, unknown> | undefined;
+  maximumFailureRatio?: number | undefined;
   owner: string;
 }
 
 export interface EvaluateForecastInput {
-  sourceId?: string;
+  sourceId?: string | undefined;
   dataset: string;
   target: string;
   modelName: string;
@@ -96,16 +96,16 @@ export interface EvaluateForecastInput {
   predicted: number[];
   baselineValue: number;
   evaluatedBy: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface CreateReportInput {
-  id?: string;
+  id?: string | undefined;
   name: string;
   description: string;
   owner: string;
   metricIds: string[];
-  schedule?: string;
+  schedule?: string | undefined;
 }
 
 const stableValue = (value: unknown): unknown => {
@@ -127,7 +127,9 @@ const normalizeList = (values: string[] | undefined): string[] =>
   [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].sort();
 
 const requireRatio = (value: number, label: string): void => {
-  if (!Number.isFinite(value) || value < 0 || value > 1) throw new Error(`${label} must be between 0 and 1`);
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`${label} must be between 0 and 1`);
+  }
 };
 
 const requirePositiveInteger = (value: number, label: string): void => {
@@ -138,37 +140,33 @@ const credentialReference = (value: string | undefined): string | null => {
   if (!value?.trim()) return null;
   const normalized = value.trim();
   if (normalized.includes("://") || /\s/u.test(normalized)) {
-    throw new Error("credentialRef must be an opaque secret-manager or environment reference, not a connection string");
+    throw new Error("credentialRef must be an opaque secret reference, not a connection string");
   }
   return normalized;
 };
 
 const validateCalculation = (calculation: AnalyticsMetricCalculation): void => {
   if (calculation.type === "count") {
-    if (calculation.column !== null && calculation.column.trim().length === 0) {
-      throw new Error("Count metric column cannot be empty");
-    }
-    return;
-  }
-  if (calculation.type === "ratio") {
+    if (calculation.column !== null && !calculation.column.trim()) throw new Error("Count column cannot be empty");
+  } else if (calculation.type === "ratio") {
     if (!calculation.numeratorColumn.trim() || !calculation.denominatorColumn.trim()) {
       throw new Error("Ratio metric requires numerator and denominator columns");
     }
     if (!Number.isFinite(calculation.multiplier)) throw new Error("Ratio multiplier must be finite");
-    return;
+  } else if (!calculation.column.trim()) {
+    throw new Error("Metric calculation column cannot be empty");
   }
-  if (!calculation.column.trim()) throw new Error("Metric calculation column cannot be empty");
 };
 
 const validateRows = (rows: AnalyticsRow[], maximum = 50_000): void => {
-  if (rows.length > maximum) throw new Error(`Rows exceed the ${maximum} row request limit`);
+  if (rows.length > maximum) throw new Error(`Rows exceed the ${maximum} row limit`);
   for (const row of rows) {
     for (const value of Object.values(row)) {
       if (value !== null && !["string", "number", "boolean"].includes(typeof value)) {
-        throw new Error("Analytics rows may contain only string, number, boolean, or null values");
+        throw new Error("Rows may contain only string, number, boolean, or null values");
       }
       if (typeof value === "number" && !Number.isFinite(value)) {
-        throw new Error("Analytics rows may not contain NaN or infinite numbers");
+        throw new Error("Rows may not contain NaN or infinite numbers");
       }
     }
   }
@@ -194,14 +192,15 @@ export class AnalyticsService {
     const now = new Date().toISOString();
     const id = input.id?.trim() || randomUUID();
     const existing = await this.repository.getSource(id);
+    const sensitivity = input.sensitivity ?? "internal";
     const source: AnalyticsDataSource = {
       id,
       name: input.name.trim(),
       description: input.description?.trim() || null,
       kind: input.kind,
       status: existing?.status ?? "active",
-      sensitivity: input.sensitivity ?? "internal",
-      requiresApproval: input.requiresApproval ?? input.sensitivity === "confidential" || input.sensitivity === "restricted",
+      sensitivity,
+      requiresApproval: input.requiresApproval ?? (sensitivity === "confidential" || sensitivity === "restricted"),
       endpointLabel: input.endpointLabel?.trim() || null,
       credentialRef: credentialReference(input.credentialRef),
       owner: input.owner.trim(),
@@ -237,9 +236,9 @@ export class AnalyticsService {
 
   async createSchemaSnapshot(input: CreateSchemaSnapshotInput): Promise<AnalyticsSchemaSnapshot> {
     await this.requireSource(input.sourceId);
-    if (input.tables.length === 0) throw new Error("Schema snapshot must contain at least one table or dataset");
+    if (input.tables.length === 0) throw new Error("Schema snapshot requires at least one dataset");
     const latest = await this.repository.latestSchema(input.sourceId);
-    const normalizedTables = input.tables.map((table) => ({
+    const tables = input.tables.map((table) => ({
       ...table,
       namespace: table.namespace?.trim() || null,
       name: table.name.trim(),
@@ -256,8 +255,8 @@ export class AnalyticsService {
       id: randomUUID(),
       sourceId: input.sourceId,
       version: (latest?.version ?? 0) + 1,
-      fingerprint: hash(normalizedTables),
-      tables: normalizedTables,
+      fingerprint: hash(tables),
+      tables,
       observedAt: new Date().toISOString(),
       observedBy: input.observedBy.trim(),
       metadata: structuredClone(input.metadata ?? {}),
@@ -324,18 +323,17 @@ export class AnalyticsService {
     reason: string,
   ): Promise<AnalyticsMetricDefinition> {
     const metric = await this.requireMetric(id);
-    if (decision === "approve" && metric.status !== "candidate") {
-      throw new Error("Only candidate metrics can be approved");
-    }
-    if (decision === "reject" && metric.status !== "candidate") {
-      throw new Error("Only candidate metrics can be rejected");
+    if ((decision === "approve" || decision === "reject") && metric.status !== "candidate") {
+      throw new Error("Only candidate metrics can be approved or rejected");
     }
     if (decision === "deprecate" && metric.status !== "approved") {
       throw new Error("Only approved metrics can be deprecated");
     }
     metric.status = decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "deprecated";
-    metric.approvedBy = decision === "approve" ? reviewedBy.trim() : metric.approvedBy;
-    metric.approvedAt = decision === "approve" ? new Date().toISOString() : metric.approvedAt;
+    if (decision === "approve") {
+      metric.approvedBy = reviewedBy.trim();
+      metric.approvedAt = new Date().toISOString();
+    }
     metric.reviewReason = reason.trim();
     metric.updatedAt = new Date().toISOString();
     await this.repository.saveMetric(metric);
@@ -357,13 +355,12 @@ export class AnalyticsService {
     if (metric.status !== "approved") throw new Error("Only approved metrics can be calculated");
     validateRows(rows);
     const filtered = filterRows(rows, metric.filters);
-    const value = calculateMetricValue(metric.calculation, filtered);
     const observation: AnalyticsMetricObservation = {
       id: randomUUID(),
       metricId: metric.id,
       sourceId: metric.sourceId,
       dataset: metric.dataset,
-      value,
+      value: calculateMetricValue(metric.calculation, filtered),
       rowCount: filtered.length,
       inputHash: hash(rows),
       dimensions: structuredClone(dimensions),
@@ -388,7 +385,6 @@ export class AnalyticsService {
   async executeQuery(input: ExecuteAnalyticsQueryInput): Promise<{ run: AnalyticsQueryRun; result: AnalyticsQueryResult }> {
     const source = await this.requireSource(input.sourceId);
     const validation = this.validator.validate(input.sql);
-    const now = new Date().toISOString();
     const maxRows = input.maxRows ?? this.defaults.maxRows;
     const timeoutMs = input.timeoutMs ?? this.defaults.timeoutMs;
     requirePositiveInteger(maxRows, "maxRows");
@@ -398,14 +394,13 @@ export class AnalyticsService {
 
     const parameters = input.parameters ?? [];
     const missingParameter = validation.parameterIndexes.find((index) => index > parameters.length);
-    const authorizationMissing = source.requiresApproval && !input.authorizedBy?.trim();
     const rejectionReasons = [
       ...validation.rejectionReasons,
       ...(source.status !== "active" ? ["Data source is disabled"] : []),
-      ...(authorizationMissing ? ["This source requires explicit access authorization"] : []),
+      ...(source.requiresApproval && !input.authorizedBy?.trim() ? ["This source requires explicit access authorization"] : []),
       ...(missingParameter ? [`SQL references $${missingParameter} but only ${parameters.length} parameters were supplied`] : []),
     ];
-
+    const now = new Date().toISOString();
     const run: AnalyticsQueryRun = {
       id: randomUUID(),
       sourceId: source.id,
@@ -429,25 +424,25 @@ export class AnalyticsService {
       metadata: { ...(input.metadata ?? {}), validationWarnings: validation.warnings },
     };
     await this.repository.saveQueryRun(run);
-    if (rejectionReasons.length > 0) throw new Error(run.error ?? "Query rejected");
+    if (run.status === "rejected") throw new Error(run.error ?? "Query rejected");
 
     run.status = "running";
     run.startedAt = new Date().toISOString();
     await this.repository.saveQueryRun(run);
     try {
-      const rawResult = await this.queryExecutor.execute({
+      const raw = await this.queryExecutor.execute({
         source,
         sql: validation.normalizedSql,
         parameters,
         maxRows,
         timeoutMs,
       });
-      validateRows(rawResult.rows, maxRows * 2);
-      const rows = rawResult.rows.slice(0, maxRows);
-      const columns = rawResult.columns.length > 0
-        ? [...new Set(rawResult.columns)]
+      validateRows(raw.rows, maxRows * 2);
+      const rows = raw.rows.slice(0, maxRows);
+      const columns = raw.columns.length > 0
+        ? [...new Set(raw.columns)]
         : [...new Set(rows.flatMap((row) => Object.keys(row)))];
-      const result: AnalyticsQueryResult = { columns, rows, durationMs: rawResult.durationMs };
+      const result: AnalyticsQueryResult = { columns, rows, durationMs: raw.durationMs };
       run.status = "succeeded";
       run.resultColumns = columns;
       run.resultRowCount = rows.length;
@@ -459,9 +454,7 @@ export class AnalyticsService {
         resultHash: run.resultHash,
       });
       for (const relation of run.referencedRelations) {
-        await this.saveLineage("dataset", `${source.id}:${relation}`, "query", run.id, "query-read", {
-          relation,
-        });
+        await this.saveLineage("dataset", `${source.id}:${relation}`, "query", run.id, "query-read", { relation });
       }
       return { run, result };
     } catch (error) {
@@ -514,15 +507,14 @@ export class AnalyticsService {
     dataset: string,
     rows: AnalyticsRow[],
     executedBy: string,
-    ruleIds?: string[],
+    ruleIds?: string[] | undefined,
     metadata: Record<string, unknown> = {},
   ): Promise<AnalyticsQualityRun> {
     await this.requireSource(sourceId);
     validateRows(rows);
     const activeRules = await this.repository.listQualityRules({ sourceId, dataset, active: true, limit: 1_000 });
-    const selected = ruleIds && ruleIds.length > 0
-      ? activeRules.filter((rule) => new Set(ruleIds).has(rule.id))
-      : activeRules;
+    const requested = new Set(ruleIds ?? []);
+    const selected = requested.size > 0 ? activeRules.filter((rule) => requested.has(rule.id)) : activeRules;
     if (selected.length === 0) throw new Error("No active quality rules matched this run");
     const results = selected.map((rule) => evaluateQualityRule(rule, rows));
     const run: AnalyticsQualityRun = {
@@ -683,8 +675,7 @@ export class AnalyticsService {
 
   async buildMissionContext(sourceId?: string, metricId?: string): Promise<AnalyticsMissionContext> {
     const generatedAt = new Date().toISOString();
-    const sources = sourceId ? [await this.requireSource(sourceId)] : await this.repository.listSources();
-    const selectedSources = sources.slice(0, 8);
+    const selectedSources = (sourceId ? [await this.requireSource(sourceId)] : await this.repository.listSources()).slice(0, 8);
     const metrics = metricId
       ? [await this.requireMetric(metricId)]
       : (await this.repository.listMetrics({ status: "approved", limit: 20 }))
@@ -694,75 +685,38 @@ export class AnalyticsService {
     const uncertainties: string[] = [];
 
     for (const source of selectedSources) {
+      sections.push(`Source ${source.name} [${source.id}] kind=${source.kind} status=${source.status} sensitivity=${source.sensitivity} approval=${source.requiresApproval}`);
+      evidence.push({ id: source.id, source: `analytics-source:${source.id}`, locator: "registry", retrievedAt: generatedAt });
       const schema = await this.repository.latestSchema(source.id);
-      sections.push(
-        `Source ${source.name} [${source.id}] kind=${source.kind} status=${source.status} sensitivity=${source.sensitivity} approval=${source.requiresApproval}`,
-      );
-      evidence.push({
-        id: source.id,
-        source: `analytics-source:${source.id}`,
-        locator: "registry",
-        retrievedAt: generatedAt,
-      });
-      if (schema) {
-        const tableSummary = schema.tables.slice(0, 12).map((table) =>
-          `${table.namespace ? `${table.namespace}.` : ""}${table.name}(${table.columns.slice(0, 20).map((column) => `${column.name}:${column.dataType}`).join(", ")})`);
-        sections.push(`Schema v${schema.version} ${schema.fingerprint.slice(0, 12)}: ${tableSummary.join("; ")}`);
-        evidence.push({
-          id: schema.id,
-          source: `analytics-schema:${source.id}`,
-          locator: `version:${schema.version}`,
-          retrievedAt: generatedAt,
-        });
-      } else {
+      if (!schema) {
         uncertainties.push(`No schema snapshot exists for source ${source.id}`);
+        continue;
       }
+      const tableSummary = schema.tables.slice(0, 12).map((table) =>
+        `${table.namespace ? `${table.namespace}.` : ""}${table.name}(${table.columns.slice(0, 20).map((column) => `${column.name}:${column.dataType}`).join(", ")})`);
+      sections.push(`Schema v${schema.version} ${schema.fingerprint.slice(0, 12)}: ${tableSummary.join("; ")}`);
+      evidence.push({ id: schema.id, source: `analytics-schema:${source.id}`, locator: `version:${schema.version}`, retrievedAt: generatedAt });
     }
 
     for (const metric of metrics.slice(0, 20)) {
-      sections.push(
-        `Approved metric ${metric.name} [${metric.id}] dataset=${metric.dataset} grain=${metric.grain} unit=${metric.unit ?? "none"} calculation=${JSON.stringify(metric.calculation)}`,
-      );
-      evidence.push({
-        id: metric.id,
-        source: `analytics-metric:${metric.sourceId}`,
-        locator: `version:${metric.version}`,
-        retrievedAt: generatedAt,
-      });
+      sections.push(`Approved metric ${metric.name} [${metric.id}] dataset=${metric.dataset} grain=${metric.grain} unit=${metric.unit ?? "none"} calculation=${JSON.stringify(metric.calculation)}`);
+      evidence.push({ id: metric.id, source: `analytics-metric:${metric.sourceId}`, locator: `version:${metric.version}`, retrievedAt: generatedAt });
       const observation = await this.repository.latestMetricObservation(metric.id);
       if (observation) {
         sections.push(`Latest observation ${observation.value} at ${observation.computedAt} from ${observation.rowCount} rows, input ${observation.inputHash.slice(0, 12)}`);
-        evidence.push({
-          id: observation.id,
-          source: `analytics-observation:${metric.id}`,
-          locator: observation.inputHash,
-          retrievedAt: generatedAt,
-        });
+        evidence.push({ id: observation.id, source: `analytics-observation:${metric.id}`, locator: observation.inputHash, retrievedAt: generatedAt });
       } else {
         uncertainties.push(`Approved metric ${metric.id} has no computed observation`);
       }
     }
 
-    const qualityRuns = await this.repository.listQualityRuns({ sourceId, limit: 10 });
-    for (const run of qualityRuns) {
+    for (const run of await this.repository.listQualityRuns({ sourceId, limit: 10 })) {
       sections.push(`Quality run ${run.id} dataset=${run.dataset} passed=${run.passed} rows=${run.rowCount} at ${run.executedAt}`);
-      evidence.push({
-        id: run.id,
-        source: `analytics-quality:${run.sourceId}`,
-        locator: run.inputHash,
-        retrievedAt: generatedAt,
-      });
+      evidence.push({ id: run.id, source: `analytics-quality:${run.sourceId}`, locator: run.inputHash, retrievedAt: generatedAt });
     }
-
-    const forecasts = await this.repository.listForecastEvaluations({ sourceId, limit: 8 });
-    for (const forecast of forecasts) {
+    for (const forecast of await this.repository.listForecastEvaluations({ sourceId, limit: 8 })) {
       sections.push(`Forecast ${forecast.modelName} target=${forecast.target} rmse=${forecast.rmse} baselineRmse=${forecast.baselineRmse} beatsBaseline=${forecast.beatsBaseline}`);
-      evidence.push({
-        id: forecast.id,
-        source: `analytics-forecast:${forecast.sourceId ?? "unregistered"}`,
-        locator: forecast.predictedHash,
-        retrievedAt: generatedAt,
-      });
+      evidence.push({ id: forecast.id, source: `analytics-forecast:${forecast.sourceId ?? "unregistered"}`, locator: forecast.predictedHash, retrievedAt: generatedAt });
     }
 
     if (selectedSources.length === 0) uncertainties.push("No analytics data sources are registered");
