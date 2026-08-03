@@ -20,7 +20,8 @@ jobs:
         with:
           node-version: 20.20.2
           cache: npm
+          cache-dependency-path: package.json
       - name: Install
-        run: npm ci
+        run: npm install
       - name: Typecheck, test, and build
         run: npm run check
