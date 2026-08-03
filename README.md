@@ -2,7 +2,7 @@
 
 **Just A Regular Virtual Intelligence System**
 
-J.A.R.V.I.S is a governed, local-first AI operating core that compiles objectives into bounded missions, activates only the capabilities required, routes work to models and tools, verifies results, and writes only reviewed knowledge to long-term memory.
+J.A.R.V.I.S is a governed, local-first AI operating core that compiles objectives into bounded missions, activates only the required capabilities, routes work to models and tools, verifies results, and writes only reviewed knowledge to long-term memory.
 
 It is one shared platform with seven isolated domain systems:
 
@@ -39,30 +39,30 @@ Objective
 - Biomedical operation is research-support only: no autonomous ordering, synthesis, dosing, clinical use, or human experimentation.
 - Agent count is not a performance metric. Verified mission success is.
 
-## Version 0.2
+## Version 0.3
 
-Version 0.2 adds the first durable domain system: **Persistent Personal Knowledge Management**.
+Version 0.3 adds the second durable domain system: **Infrastructure Administration**.
 
 Implemented foundation:
 
-- Mission compiler and dynamic capability graph
+- Governed mission compiler, capability graph, verification, audit, and telemetry
 - Seven isolated domain policy manifests
-- Risk rejection and human authorization pauses
-- Local Ollama model routing and constrained inference scheduling
-- Deterministic verification, retries, audits, and telemetry
-- Isolated Personal Knowledge workspaces
-- Content-addressed storage of original source text
-- Explicit user, assistant, external, system, and mixed authorship
-- Candidate, approved, rejected, and superseded knowledge states
-- Decisions, corrections, standing rules, unresolved questions, next actions, evidence, assumptions, contradictions, and project state
-- PostgreSQL persistence and migration
-- PostgreSQL full-text retrieval
-- Optional Ollama embeddings and Qdrant semantic retrieval
-- Reciprocal-rank fusion of lexical and semantic results
-- Project timelines and exact-state resume packets
-- Integration tests covering review-gated retrieval and authorship preservation
+- Persistent Personal Knowledge workspaces with reviewed retrieval and exact-state resumption
+- Fleet inventory for nodes, services, capacities, labels, and capabilities
+- Token-gated node registration and heartbeat ingestion
+- CPU, memory, disk, load, temperature, network, process, and service-health records
+- Configurable health thresholds and deduplicated alerts
+- Resource-aware workload placement across eligible nodes
+- Incident records and append-only operational timelines
+- Backup registry and explicit verification records
+- Propose → approve/reject → execute action lifecycle with idempotency keys
+- PostgreSQL persistence for fleet state
+- Shell-free local node collector using Node.js operating-system APIs
+- Live fleet state compiled into infrastructure-administration mission context
 
-It deliberately does **not** claim that authentication, live MCP servers, background queues, every file parser, production multi-node scheduling, customer-account mutation, infrastructure mutation, automated publishing, or laboratory execution already exist.
+The default executor does **not** run arbitrary shell commands. Service restarts and log rotation remain refused until a narrowly scoped privileged node adapter is installed. Drain and resume operations affect J.A.R.V.I.S scheduling state only.
+
+J.A.R.V.I.S does not yet claim production authentication, encrypted agent identity, remote command execution, automatic container discovery, vulnerability scanning, distributed mission queues, cloud-provider adapters, or autonomous production administration.
 
 ## Quick start
 
@@ -70,7 +70,8 @@ Requirements:
 
 - Node.js 20.20.2 or newer
 - npm
-- Ollama at `http://127.0.0.1:11434` for live mission execution
+- Optional: Ollama at `http://127.0.0.1:11434` for live model execution
+- Optional: Docker for PostgreSQL, Qdrant, and Redis
 
 ```bash
 cp .env.example .env
@@ -78,27 +79,46 @@ npm install
 npm run dev
 ```
 
-### Persistent Personal Knowledge
+### Durable storage
 
-Start the storage services:
+Start local services:
 
 ```bash
-docker compose up -d postgres qdrant
+docker compose up -d postgres qdrant redis
 ```
 
-Set these values in `.env`:
+Set the desired adapters in `.env`:
 
 ```text
 PKM_STORAGE_DRIVER=postgres
+INFRA_STORAGE_DRIVER=postgres
 PKM_SEMANTIC_INDEX=qdrant
 ```
 
-Apply the schema and start J.A.R.V.I.S:
+Apply all schemas and start J.A.R.V.I.S:
 
 ```bash
 npm run migrate
 npm run dev
 ```
+
+### Register the local machine
+
+Replace the development token in `.env`, then run:
+
+```bash
+npm run infra:agent:once
+```
+
+To keep sending heartbeats:
+
+```bash
+npm run infra:agent
+```
+
+Each approved worker machine points `INFRA_CONTROL_URL` at the J.A.R.V.I.S control layer and uses the same configured `INFRA_AGENT_TOKEN`. Do not expose this bootstrap token scheme to an untrusted network.
+
+### Persistent Personal Knowledge
 
 Create a workspace:
 
@@ -150,6 +170,30 @@ POST /v1/pkm/workspaces/:id/items/:itemId/reject
 GET  /v1/pkm/workspaces/:id/search
 GET  /v1/pkm/workspaces/:id/resume
 GET  /v1/pkm/workspaces/:id/timeline
+
+POST /v1/infrastructure/nodes
+POST /v1/infrastructure/nodes/:id/heartbeat
+GET  /v1/infrastructure/nodes
+GET  /v1/infrastructure/nodes/:id
+GET  /v1/infrastructure/nodes/:id/metrics
+GET  /v1/infrastructure/fleet
+POST /v1/infrastructure/schedule
+POST /v1/infrastructure/actions
+GET  /v1/infrastructure/actions
+POST /v1/infrastructure/actions/:id/approve
+POST /v1/infrastructure/actions/:id/reject
+POST /v1/infrastructure/actions/:id/execute
+GET  /v1/infrastructure/alerts
+POST /v1/infrastructure/alerts/:id/resolve
+POST /v1/infrastructure/incidents
+GET  /v1/infrastructure/incidents
+GET  /v1/infrastructure/incidents/:id
+PATCH /v1/infrastructure/incidents/:id
+POST /v1/infrastructure/backups
+GET  /v1/infrastructure/backups
+POST /v1/infrastructure/backups/:id/verifications
+GET  /v1/infrastructure/backups/:id/verifications
+GET  /v1/infrastructure/events
 ```
 
 ## Development commands
@@ -157,6 +201,8 @@ GET  /v1/pkm/workspaces/:id/timeline
 ```bash
 npm run dev
 npm run migrate
+npm run infra:agent:once
+npm run infra:agent
 npm run typecheck
 npm test
 npm run build
@@ -167,6 +213,7 @@ npm start
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/PERSONAL-KNOWLEDGE.md`](docs/PERSONAL-KNOWLEDGE.md)
+- [`docs/INFRASTRUCTURE-ADMINISTRATION.md`](docs/INFRASTRUCTURE-ADMINISTRATION.md)
 - [`docs/DOMAIN-BOUNDARIES.md`](docs/DOMAIN-BOUNDARIES.md)
 - [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
