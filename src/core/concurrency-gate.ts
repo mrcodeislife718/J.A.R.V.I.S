@@ -28,12 +28,14 @@ export class ConcurrencyGate {
     }
 
     await new Promise<void>((resolve) => this.waiters.push(resolve));
-    this.active += 1;
   }
 
   private release(): void {
-    this.active -= 1;
     const next = this.waiters.shift();
-    if (next) next();
+    if (next) {
+      next();
+      return;
+    }
+    this.active -= 1;
   }
 }
