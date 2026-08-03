@@ -10,7 +10,9 @@ export interface SemanticIndex {
 }
 
 export class NoopSemanticIndex implements SemanticIndex {
-  async upsert(): Promise<void> {}
+  async upsert(): Promise<void> {
+    throw new Error("Semantic index is disabled");
+  }
   async search(): Promise<SemanticSearchResult[]> {
     return [];
   }
