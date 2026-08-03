@@ -87,9 +87,9 @@ export interface PkmIngestRequest {
   kind: PkmSourceKind;
   authorship: PkmAuthorship;
   content: string;
-  externalUri?: string;
-  metadata?: Record<string, unknown>;
-  extractLabeledKnowledge?: boolean;
+  externalUri?: string | undefined;
+  metadata?: Record<string, unknown> | undefined;
+  extractLabeledKnowledge?: boolean | undefined;
 }
 
 export interface PkmSearchHit {
