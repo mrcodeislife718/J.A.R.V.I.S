@@ -27,12 +27,12 @@ export interface CreateKnowledgeItemInput {
   authorship: PkmAuthorship;
   confidence: number;
   evidenceState: PkmEvidenceState;
-  sourceStart?: number;
-  sourceEnd?: number;
-  validFrom?: string;
-  validUntil?: string;
-  supersedesId?: string;
-  metadata?: Record<string, unknown>;
+  sourceStart?: number | undefined;
+  sourceEnd?: number | undefined;
+  validFrom?: string | undefined;
+  validUntil?: string | undefined;
+  supersedesId?: string | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export class PkmService {
@@ -48,7 +48,7 @@ export class PkmService {
     this.searchService = new PkmSearchService(repository, embeddingClient, semanticIndex);
   }
 
-  async createWorkspace(input: { name: string; description?: string }): Promise<PkmWorkspace> {
+  async createWorkspace(input: { name: string; description?: string | undefined }): Promise<PkmWorkspace> {
     const now = new Date().toISOString();
     const workspace: PkmWorkspace = {
       id: randomUUID(),
@@ -331,8 +331,8 @@ export class PkmService {
 
   private async appendTimeline(input: {
     workspaceId: string;
-    itemId?: string;
-    sourceId?: string;
+    itemId?: string | undefined;
+    sourceId?: string | undefined;
     type: string;
     summary: string;
     metadata: Record<string, unknown>;
