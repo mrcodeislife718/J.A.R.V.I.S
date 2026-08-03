@@ -2,17 +2,23 @@ import { randomUUID } from "node:crypto";
 import { getCapability } from "../capabilities/registry.js";
 import { getDomainManifest } from "../domains/registry.js";
 import type { AuditRepository } from "../storage/in-memory.js";
-import type { ContextPacket, MissionRecord, ModelClient } from "./types.js";
+import { ConcurrencyGate } from "./concurrency-gate.js";
 import { ModelRouter } from "./model-router.js";
+import type { ContextPacket, MissionRecord, ModelClient } from "./types.js";
 
 export class ExecutionScheduler {
+  private readonly inferenceGate: ConcurrencyGate;
+
   constructor(
     private readonly modelClient: ModelClient,
     private readonly modelRouter: ModelRouter,
     private readonly auditRepository: AuditRepository,
     private readonly timeoutMs: number,
+    maximumParallelGenerations = 1,
     private readonly maxAttempts = 2,
-  ) {}
+  ) {
+    this.inferenceGate = new ConcurrencyGate(maximumParallelGenerations);
+  }
 
   async execute(record: MissionRecord, context: ContextPacket): Promise<MissionRecord> {
     const mission = structuredClone(record);
@@ -86,18 +92,21 @@ export class ExecutionScheduler {
             model: route.model,
             routeReason: route.reason,
             attempt,
+            queue: this.inferenceGate.snapshot(),
           },
         });
 
         try {
-          const response = await this.modelClient.generate({
-            model: route.model,
-            system,
-            prompt,
-            temperature: route.temperature,
-            maxTokens: route.maxTokens,
-            timeoutMs: Math.min(this.timeoutMs, mission.constraints.deadlineMs),
-          });
+          const response = await this.inferenceGate.run(() =>
+            this.modelClient.generate({
+              model: route.model,
+              system,
+              prompt,
+              temperature: route.temperature,
+              maxTokens: route.maxTokens,
+              timeoutMs: Math.min(this.timeoutMs, mission.constraints.deadlineMs),
+            }),
+          );
 
           if (response.text.length === 0) {
             throw new Error("Model returned an empty result");
