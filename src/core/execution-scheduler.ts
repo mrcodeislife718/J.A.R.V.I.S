@@ -11,6 +11,7 @@ export class ExecutionScheduler {
     private readonly modelRouter: ModelRouter,
     private readonly auditRepository: AuditRepository,
     private readonly timeoutMs: number,
+    private readonly maxAttempts = 2,
   ) {}
 
   async execute(record: MissionRecord, context: ContextPacket): Promise<MissionRecord> {
@@ -40,23 +41,6 @@ export class ExecutionScheduler {
         .slice(-3)
         .map((candidate) => `${candidate.capabilityId}: ${candidate.output?.slice(0, 3_000)}`);
 
-      step.status = "running";
-      step.attempt += 1;
-      step.startedAt = new Date().toISOString();
-      await this.auditRepository.append({
-        id: randomUUID(),
-        missionId: mission.id,
-        type: "capability.started",
-        actor: "execution-scheduler",
-        occurredAt: step.startedAt,
-        detail: {
-          stepId: step.id,
-          capabilityId: step.capabilityId,
-          model: route.model,
-          routeReason: route.reason,
-        },
-      });
-
       const system = [
         "You are a bounded capability inside J.A.R.V.I.S, a governed AI operating system.",
         `Your only capability is: ${capability.name} — ${capability.description}`,
@@ -84,55 +68,95 @@ export class ExecutionScheduler {
         "Return the result for this capability. For core.report, integrate the mission into a final answer and retain uncertainty labels.",
       ].join("\n\n");
 
-      try {
-        const response = await this.modelClient.generate({
-          model: route.model,
-          system,
-          prompt,
-          temperature: route.temperature,
-          maxTokens: route.maxTokens,
-          timeoutMs: Math.min(this.timeoutMs, mission.constraints.deadlineMs),
-        });
-
-        if (response.text.length === 0) {
-          throw new Error("Model returned an empty result");
-        }
-
-        step.output = response.text;
-        step.status = "completed";
-        step.completedAt = new Date().toISOString();
+      let completed = false;
+      for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+        step.status = "running";
+        step.attempt = attempt;
+        const startedAt = new Date().toISOString();
+        step.startedAt = startedAt;
         await this.auditRepository.append({
           id: randomUUID(),
           missionId: mission.id,
-          type: "capability.completed",
+          type: attempt === 1 ? "capability.started" : "capability.retrying",
           actor: "execution-scheduler",
-          occurredAt: step.completedAt,
+          occurredAt: startedAt,
           detail: {
             stepId: step.id,
             capabilityId: step.capabilityId,
-            model: response.model,
-            inputTokens: response.inputTokens ?? null,
-            outputTokens: response.outputTokens ?? null,
-            totalDurationMs: response.totalDurationMs ?? null,
+            model: route.model,
+            routeReason: route.reason,
+            attempt,
           },
         });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown execution failure";
-        step.status = "failed";
-        step.error = message;
-        step.completedAt = new Date().toISOString();
-        mission.status = "failed";
-        mission.error = message;
-        await this.auditRepository.append({
-          id: randomUUID(),
-          missionId: mission.id,
-          type: "capability.failed",
-          actor: "execution-scheduler",
-          occurredAt: step.completedAt,
-          detail: { stepId: step.id, capabilityId: step.capabilityId, error: message },
-        });
-        break;
+
+        try {
+          const response = await this.modelClient.generate({
+            model: route.model,
+            system,
+            prompt,
+            temperature: route.temperature,
+            maxTokens: route.maxTokens,
+            timeoutMs: Math.min(this.timeoutMs, mission.constraints.deadlineMs),
+          });
+
+          if (response.text.length === 0) {
+            throw new Error("Model returned an empty result");
+          }
+
+          step.output = response.text;
+          step.status = "completed";
+          const completedAt = new Date().toISOString();
+          step.completedAt = completedAt;
+          await this.auditRepository.append({
+            id: randomUUID(),
+            missionId: mission.id,
+            type: "capability.completed",
+            actor: "execution-scheduler",
+            occurredAt: completedAt,
+            detail: {
+              stepId: step.id,
+              capabilityId: step.capabilityId,
+              model: response.model,
+              attempt,
+              inputTokens: response.inputTokens ?? null,
+              outputTokens: response.outputTokens ?? null,
+              totalDurationMs: response.totalDurationMs ?? null,
+            },
+          });
+          completed = true;
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown execution failure";
+          step.error = message;
+          if (attempt < this.maxAttempts) {
+            await this.auditRepository.append({
+              id: randomUUID(),
+              missionId: mission.id,
+              type: "capability.attempt-failed",
+              actor: "execution-scheduler",
+              occurredAt: new Date().toISOString(),
+              detail: { stepId: step.id, capabilityId: step.capabilityId, attempt, error: message },
+            });
+            continue;
+          }
+
+          step.status = "failed";
+          const completedAt = new Date().toISOString();
+          step.completedAt = completedAt;
+          mission.status = "failed";
+          mission.error = message;
+          await this.auditRepository.append({
+            id: randomUUID(),
+            missionId: mission.id,
+            type: "capability.failed",
+            actor: "execution-scheduler",
+            occurredAt: completedAt,
+            detail: { stepId: step.id, capabilityId: step.capabilityId, attempt, error: message },
+          });
+        }
       }
+
+      if (!completed) break;
     }
 
     const reportStep = mission.steps.find((step) => step.capabilityId === "core.report");
