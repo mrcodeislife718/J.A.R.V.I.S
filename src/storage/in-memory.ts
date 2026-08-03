@@ -15,6 +15,7 @@ export interface MemoryRepository {
 export interface AuditRepository {
   append(event: AuditEvent): Promise<void>;
   listForMission(missionId: string): Promise<AuditEvent[]>;
+  listAll(): Promise<AuditEvent[]>;
 }
 
 export class InMemoryMissionRepository implements MissionRepository {
@@ -68,5 +69,9 @@ export class InMemoryAuditRepository implements AuditRepository {
     return this.events
       .filter((event) => event.missionId === missionId)
       .map((event) => structuredClone(event));
+  }
+
+  async listAll(): Promise<AuditEvent[]> {
+    return this.events.map((event) => structuredClone(event));
   }
 }
