@@ -43,12 +43,20 @@ export interface MissionConstraints {
   allowSideEffects: boolean;
 }
 
+export interface MissionConstraintOverrides {
+  tokenBudget?: number | undefined;
+  memoryBudgetMb?: number | undefined;
+  deadlineMs?: number | undefined;
+  allowExternalNetwork?: boolean | undefined;
+  allowSideEffects?: boolean | undefined;
+}
+
 export interface MissionRequest {
   domain: DomainId;
   objective: string;
   requestedCapabilities: string[];
   inputs: Record<string, unknown>;
-  constraints: Partial<MissionConstraints>;
+  constraints: MissionConstraintOverrides;
   rememberOutput: boolean;
 }
 
