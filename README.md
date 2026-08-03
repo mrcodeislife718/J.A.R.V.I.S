@@ -39,30 +39,32 @@ Objective
 - Biomedical operation is research-support only: no autonomous ordering, synthesis, dosing, clinical use, or human experimentation.
 - Agent count is not a performance metric. Verified mission success is.
 
-## Version 0.3
+## Version 0.4
 
-Version 0.3 adds the second durable domain system: **Infrastructure Administration**.
+Version 0.4 adds the third durable domain system: **Governed Analytics**.
 
 Implemented foundation:
 
 - Governed mission compiler, capability graph, verification, audit, and telemetry
 - Seven isolated domain policy manifests
 - Persistent Personal Knowledge workspaces with reviewed retrieval and exact-state resumption
-- Fleet inventory for nodes, services, capacities, labels, and capabilities
-- Token-gated node registration and heartbeat ingestion
-- CPU, memory, disk, load, temperature, network, process, and service-health records
-- Configurable health thresholds and deduplicated alerts
-- Resource-aware workload placement across eligible nodes
-- Incident records and append-only operational timelines
-- Backup registry and explicit verification records
-- Propose → approve/reject → execute action lifecycle with idempotency keys
-- PostgreSQL persistence for fleet state
-- Shell-free local node collector using Node.js operating-system APIs
-- Live fleet state compiled into infrastructure-administration mission context
+- Infrastructure fleet inventory, telemetry, alerts, workload routing, incidents, backups, and approval-gated actions
+- Persistent analytics data-source registry with sensitivity and access controls
+- Versioned schema snapshots with fingerprints
+- Conservative read-only SQL validation
+- Pluggable query-executor contract with a refusing default
+- Candidate, approved, rejected, and deprecated metric definitions
+- Deterministic metric calculations with hashed inputs
+- Dataset profiling and deterministic data-quality rules
+- Forecast evaluation against an explicit baseline
+- Source-to-result lineage across schemas, queries, metrics, quality checks, forecasts, and reports
+- Candidate and approved report definitions with missing-metric disclosure
+- PostgreSQL persistence for analytics state
+- Approved analytics state compiled into analytics mission context
 
-The default executor does **not** run arbitrary shell commands. Service restarts and log rotation remain refused until a narrowly scoped privileged node adapter is installed. Drain and resume operations affect J.A.R.V.I.S scheduling state only.
+The default analytics executor does **not** connect to external databases or run SQL. A deployment must inject a separately governed, read-only connector. Credential references remain opaque and are not placed into model context.
 
-J.A.R.V.I.S does not yet claim production authentication, encrypted agent identity, remote command execution, automatic container discovery, vulnerability scanning, distributed mission queues, cloud-provider adapters, or autonomous production administration.
+J.A.R.V.I.S does not yet claim production authentication, regulated-data certification, automatic schema crawling, built-in warehouse connectors, causal-inference automation, scheduled report delivery, remote privileged infrastructure execution, or autonomous laboratory activity.
 
 ## Quick start
 
@@ -92,6 +94,7 @@ Set the desired adapters in `.env`:
 ```text
 PKM_STORAGE_DRIVER=postgres
 INFRA_STORAGE_DRIVER=postgres
+ANALYTICS_STORAGE_DRIVER=postgres
 PKM_SEMANTIC_INDEX=qdrant
 ```
 
@@ -116,7 +119,7 @@ To keep sending heartbeats:
 npm run infra:agent
 ```
 
-Each approved worker machine points `INFRA_CONTROL_URL` at the J.A.R.V.I.S control layer and uses the same configured `INFRA_AGENT_TOKEN`. Do not expose this bootstrap token scheme to an untrusted network.
+Each approved worker machine points `INFRA_CONTROL_URL` at the J.A.R.V.I.S control layer and uses the configured `INFRA_AGENT_TOKEN`. Do not expose this bootstrap shared-token scheme to an untrusted network.
 
 ### Persistent Personal Knowledge
 
@@ -128,20 +131,34 @@ curl -X POST http://localhost:3000/v1/pkm/workspaces \
   -d '{"name":"J.A.R.V.I.S","description":"Persistent project memory"}'
 ```
 
-Ingest exact user-authored knowledge:
+### Governed Analytics
+
+Register a source without exposing its credentials:
 
 ```bash
-curl -X POST http://localhost:3000/v1/pkm/workspaces/WORKSPACE_ID/sources \
+curl -X POST http://localhost:3000/v1/analytics/sources \
   -H 'content-type: application/json' \
   -d '{
-    "title":"Architecture notes",
-    "kind":"note",
-    "authorship":"user",
-    "content":"Decision: Build one governed core.\nCorrection: Agent count is not a performance metric.\nNext action: Add persistent storage."
+    "id":"company-analytics",
+    "name":"Company analytics",
+    "kind":"postgres",
+    "sensitivity":"confidential",
+    "requiresApproval":true,
+    "endpointLabel":"read-only reporting replica",
+    "credentialRef":"env:COMPANY_ANALYTICS_READONLY_URL",
+    "owner":"Charles Castillo"
   }'
 ```
 
-Extracted records remain candidates until explicitly approved.
+Validate a query without executing it:
+
+```bash
+curl -X POST http://localhost:3000/v1/analytics/sql/validate \
+  -H 'content-type: application/json' \
+  -d '{"sql":"SELECT customer_id, revenue FROM sales ORDER BY revenue DESC LIMIT 100"}'
+```
+
+Live query execution remains disabled until an approved read-only executor is installed.
 
 ## API groups
 
@@ -161,12 +178,6 @@ POST /v1/pkm/workspaces
 GET  /v1/pkm/workspaces
 GET  /v1/pkm/workspaces/:id
 POST /v1/pkm/workspaces/:id/sources
-GET  /v1/pkm/workspaces/:id/sources
-GET  /v1/pkm/workspaces/:id/sources/:sourceId/content
-POST /v1/pkm/workspaces/:id/items
-GET  /v1/pkm/workspaces/:id/items
-POST /v1/pkm/workspaces/:id/items/:itemId/approve
-POST /v1/pkm/workspaces/:id/items/:itemId/reject
 GET  /v1/pkm/workspaces/:id/search
 GET  /v1/pkm/workspaces/:id/resume
 GET  /v1/pkm/workspaces/:id/timeline
@@ -174,26 +185,36 @@ GET  /v1/pkm/workspaces/:id/timeline
 POST /v1/infrastructure/nodes
 POST /v1/infrastructure/nodes/:id/heartbeat
 GET  /v1/infrastructure/nodes
-GET  /v1/infrastructure/nodes/:id
-GET  /v1/infrastructure/nodes/:id/metrics
 GET  /v1/infrastructure/fleet
 POST /v1/infrastructure/schedule
 POST /v1/infrastructure/actions
-GET  /v1/infrastructure/actions
 POST /v1/infrastructure/actions/:id/approve
-POST /v1/infrastructure/actions/:id/reject
 POST /v1/infrastructure/actions/:id/execute
 GET  /v1/infrastructure/alerts
-POST /v1/infrastructure/alerts/:id/resolve
 POST /v1/infrastructure/incidents
-GET  /v1/infrastructure/incidents
-GET  /v1/infrastructure/incidents/:id
-PATCH /v1/infrastructure/incidents/:id
 POST /v1/infrastructure/backups
-GET  /v1/infrastructure/backups
 POST /v1/infrastructure/backups/:id/verifications
-GET  /v1/infrastructure/backups/:id/verifications
 GET  /v1/infrastructure/events
+
+POST /v1/analytics/sources
+GET  /v1/analytics/sources
+POST /v1/analytics/sources/:id/schemas
+GET  /v1/analytics/sources/:id/schema
+POST /v1/analytics/sql/validate
+POST /v1/analytics/queries
+GET  /v1/analytics/queries
+POST /v1/analytics/metrics
+POST /v1/analytics/metrics/:id/approve
+POST /v1/analytics/metrics/:id/calculate
+GET  /v1/analytics/metrics/:id/observations
+POST /v1/analytics/quality/rules
+POST /v1/analytics/quality/runs
+POST /v1/analytics/profiles
+POST /v1/analytics/forecasts/evaluate
+POST /v1/analytics/reports
+POST /v1/analytics/reports/:id/approve
+GET  /v1/analytics/reports/:id/snapshot
+GET  /v1/analytics/lineage
 ```
 
 ## Development commands
@@ -214,6 +235,7 @@ npm start
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/PERSONAL-KNOWLEDGE.md`](docs/PERSONAL-KNOWLEDGE.md)
 - [`docs/INFRASTRUCTURE-ADMINISTRATION.md`](docs/INFRASTRUCTURE-ADMINISTRATION.md)
+- [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
 - [`docs/DOMAIN-BOUNDARIES.md`](docs/DOMAIN-BOUNDARIES.md)
 - [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
