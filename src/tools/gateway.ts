@@ -10,18 +10,21 @@ export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
   description: string;
   allowedDomains: DomainId[];
   sideEffecting: boolean;
+  parse(input: unknown): TInput;
   execute(input: TInput, context: ToolInvocationContext): Promise<TOutput>;
 }
 
+type RegisteredTool = ToolDefinition<any, unknown>;
+
 export class ToolGateway {
-  private readonly tools = new Map<string, ToolDefinition>();
+  private readonly tools = new Map<string, RegisteredTool>();
 
   register<TInput, TOutput>(tool: ToolDefinition<TInput, TOutput>): void {
     if (this.tools.has(tool.id)) throw new Error(`Tool ${tool.id} is already registered`);
-    this.tools.set(tool.id, tool as ToolDefinition);
+    this.tools.set(tool.id, tool);
   }
 
-  listForDomain(domain: DomainId): Array<Pick<ToolDefinition, "id" | "description" | "sideEffecting">> {
+  listForDomain(domain: DomainId): Array<Pick<RegisteredTool, "id" | "description" | "sideEffecting">> {
     return [...this.tools.values()]
       .filter((tool) => tool.allowedDomains.includes(domain))
       .map(({ id, description, sideEffecting }) => ({ id, description, sideEffecting }));
@@ -41,6 +44,8 @@ export class ToolGateway {
         throw new Error(`Tool ${toolId} requires explicit human authorization`);
       }
     }
-    return (await tool.execute(input, context)) as TOutput;
+
+    const validatedInput = tool.parse(input);
+    return (await tool.execute(validatedInput, context)) as TOutput;
   }
 }
