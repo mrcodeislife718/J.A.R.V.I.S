@@ -9,6 +9,7 @@ import { MemoryGate } from "./core/memory-gate.js";
 import { MissionCompiler } from "./core/mission-compiler.js";
 import { ModelRouter } from "./core/model-router.js";
 import { JarvisOrchestrator } from "./core/orchestrator.js";
+import { TelemetryService } from "./core/telemetry.js";
 import { DOMAIN_IDS, type ModelClient } from "./core/types.js";
 import { VerificationEngine } from "./core/verification-engine.js";
 import { listDomainManifests } from "./domains/registry.js";
@@ -89,6 +90,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     memoryRepository,
     auditRepository,
   );
+  const telemetry = new TelemetryService(missionRepository, auditRepository);
 
   app.get("/health", async () => ({
     status: "ok",
@@ -99,6 +101,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   }));
 
   app.get("/v1/domains", async () => ({ domains: listDomainManifests() }));
+  app.get("/v1/metrics", async () => ({ metrics: await telemetry.snapshot() }));
 
   app.get("/v1/capabilities", async (request) => {
     const query = z.object({ domain: z.enum(DOMAIN_IDS).optional() }).parse(request.query);
@@ -116,7 +119,12 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     if (!parsed.success) return reply.code(400).send({ error: "Invalid mission", detail: parsed.error.flatten() });
     try {
       const mission = await orchestrator.submit(parsed.data);
-      return reply.code(mission.status === "awaiting-authorization" ? 202 : 201).send({ mission });
+      const statusCode = mission.risk.prohibited
+        ? 422
+        : mission.status === "awaiting-authorization"
+          ? 202
+          : 201;
+      return reply.code(statusCode).send({ mission });
     } catch (error) {
       return reply.code(400).send({ error: error instanceof Error ? error.message : "Mission submission failed" });
     }
