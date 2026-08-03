@@ -21,8 +21,8 @@ class CapturingModelClient implements ModelClient {
     this.prompts.push(request.prompt);
     const capability = request.prompt.match(/CURRENT CAPABILITY: ([^\n]+)/)?.[1] ?? "unknown";
     const text = capability === "core.report"
-      ? "Known: infrastructure state was supplied by the control plane. Missing: no external host commands were executed."
-      : `Known: processed ${capability}. Missing: no external host commands were executed.`;
+      ? "Known: infrastructure state was supplied by the control plane. Missing: no external host commands were run."
+      : `Known: processed ${capability}. Missing: no external host commands were run.`;
     return { text, model: request.model, inputTokens: 100, outputTokens: 30, totalDurationMs: 5 };
   }
 }
