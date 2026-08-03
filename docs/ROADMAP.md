@@ -4,7 +4,7 @@ The roadmap expands one governed core rather than creating seven unrelated stack
 
 ## Phase 1 — Governed core foundation
 
-Status: implemented in version 0.1 bootstrap.
+Status: implemented in version 0.1.
 
 - Mission contracts and compiler
 - Domain and capability registries
@@ -12,42 +12,75 @@ Status: implemented in version 0.1 bootstrap.
 - Human authorization gate
 - Context compilation contract
 - Ollama adapter and model routing
-- Serial scheduler
+- Constrained scheduler
 - Verification plane
 - Governed memory candidates
 - Tool gateway contract
 - Audit and telemetry
 - API, tests, container, and documentation
 
-Exit requirement: CI passes and every domain can submit a bounded mission through the same lifecycle.
+Exit result: every domain can submit a bounded mission through the same governed lifecycle.
 
 ## Phase 2 — Personal Knowledge Management
 
-- PostgreSQL persistence
-- Original-document storage
-- Conversation and archive ingestion
-- User-versus-assistant authorship attribution
-- Project timelines and decision records
-- Contradiction, correction, supersession, and memory decay rules
-- Project-scoped hybrid retrieval
-- Exact-state resumption
-- Daily and weekly review jobs
+Status: durable foundation implemented in version 0.2.
 
-Exit requirement: a project can be resumed from approved state with traceable decisions and no cross-project contamination.
+Implemented:
+
+- PostgreSQL persistence
+- Content-addressed original-text storage
+- Explicit user, assistant, external, system, and mixed authorship
+- Project timelines and decision records
+- Candidate, approved, rejected, and superseded review states
+- Project-scoped PostgreSQL retrieval
+- Optional Qdrant semantic retrieval
+- Exact-state resumption
+- Approved workspace state compiled into missions
+
+Remaining production work:
+
+- Automatic PDF, DOCX, email, and archive parsing
+- Encrypted object storage
+- Background ingestion queues
+- Learned reranking
+- Cross-workspace transfer approval
+- Daily and weekly scheduled review jobs
+- Regulated-data certification where applicable
+
+Exit result achieved for the current foundation: a project can be resumed from approved state with traceable decisions and no automatic cross-project contamination.
 
 ## Phase 3 — Infrastructure Administration
 
-- Node enrollment and capability inventory
-- CPU, RAM, GPU, swap, disk, temperature, model, and service metrics
-- Queue leases and backpressure
-- Workload routing across machines
-- Model residency and unload policies
-- Safe read-only diagnostics
-- Backup verification
-- Approval-bound recovery playbooks
-- Rollback and postcondition verification
+Status: governed control-plane foundation implemented in version 0.3.
 
-Exit requirement: the control layer can schedule and observe work across nodes and safely recover from a failed worker.
+Implemented:
+
+- Token-gated node enrollment
+- Node roles, labels, capability inventory, and capacity records
+- CPU, memory, swap, disk, load, temperature, network, process, and service telemetry contracts
+- Shell-free local host collector and heartbeat agent
+- Configurable health thresholds and deduplicated alerts
+- Persistent PostgreSQL fleet repository
+- Resource-aware workload placement decisions
+- Safe read-only control-plane diagnostics
+- Incident records and operational timelines
+- Backup registry and verification records
+- Approval-bound action lifecycle with idempotency
+- Record-only default executor that refuses unsupported privileged changes
+- Infrastructure state compiled into missions
+
+Remaining production work:
+
+- Per-node cryptographic identity, TLS, token rotation, and replay protection
+- Platform-specific collectors for systemd, launchd, Windows services, containers, GPUs, temperatures, swap, and network counters
+- Redis-backed queues, leases, capacity reservations, and backpressure
+- Model residency, load, unload, and warm-cache policies
+- Sandboxed privileged executors with command allow-lists
+- Automated rollback and postcondition verification
+- Real backup restore adapters
+- High availability and disaster recovery
+
+Current exit result: the control layer can register, observe, compare, and select worker nodes, retain incidents and backups, and prevent operational actions from executing without scoped approval. Full failed-worker recovery remains a later production layer.
 
 ## Phase 4 — Analytics
 

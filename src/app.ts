@@ -14,6 +14,15 @@ import { TelemetryService } from "./core/telemetry.js";
 import { DOMAIN_IDS, type ModelClient } from "./core/types.js";
 import { VerificationEngine } from "./core/verification-engine.js";
 import { listDomainManifests } from "./domains/registry.js";
+import {
+  GovernedRecordOnlyActionExecutor,
+  type InfrastructureActionExecutor,
+} from "./infrastructure/action-executor.js";
+import { InMemoryInfrastructureRepository } from "./infrastructure/in-memory-repository.js";
+import { PostgresInfrastructureRepository } from "./infrastructure/postgres-repository.js";
+import type { InfrastructureRepository } from "./infrastructure/repository.js";
+import { registerInfrastructureRoutes } from "./infrastructure/routes.js";
+import { InfrastructureService } from "./infrastructure/service.js";
 import { FileSystemBlobStore, type BlobStore } from "./pkm/blob-store.js";
 import {
   DeterministicEmbeddingClient,
@@ -70,6 +79,8 @@ export interface BuildAppOptions {
   blobStore?: BlobStore;
   embeddingClient?: EmbeddingClient;
   semanticIndex?: SemanticIndex;
+  infrastructureRepository?: InfrastructureRepository;
+  infrastructureActionExecutor?: InfrastructureActionExecutor;
   logger?: boolean;
 }
 
@@ -115,15 +126,18 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   );
   const telemetry = new TelemetryService(missionRepository, auditRepository);
 
-  let pkmPool: Pool | null = null;
+  const needsDatabasePool =
+    (!options.pkmRepository && config.PKM_STORAGE_DRIVER === "postgres") ||
+    (!options.infrastructureRepository && config.INFRA_STORAGE_DRIVER === "postgres");
+  const databasePool: Pool | null = needsDatabasePool
+    ? createPostgresPool(config.DATABASE_URL)
+    : null;
+
   let pkmRepository = options.pkmRepository;
   if (!pkmRepository) {
-    if (config.PKM_STORAGE_DRIVER === "postgres") {
-      pkmPool = createPostgresPool(config.DATABASE_URL);
-      pkmRepository = new PostgresPkmRepository(pkmPool);
-    } else {
-      pkmRepository = new InMemoryPkmRepository();
-    }
+    pkmRepository = config.PKM_STORAGE_DRIVER === "postgres"
+      ? new PostgresPkmRepository(databasePool as Pool)
+      : new InMemoryPkmRepository();
   }
 
   const blobStore = options.blobStore ?? new FileSystemBlobStore(config.PKM_BLOB_DIR);
@@ -140,9 +154,33 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   const pkmService = new PkmService(pkmRepository, blobStore, embeddingClient, semanticIndex);
   contextCompiler.setPersistentContextProvider(pkmService);
 
-  if (pkmPool) {
+  let infrastructureRepository = options.infrastructureRepository;
+  if (!infrastructureRepository) {
+    infrastructureRepository = config.INFRA_STORAGE_DRIVER === "postgres"
+      ? new PostgresInfrastructureRepository(databasePool as Pool)
+      : new InMemoryInfrastructureRepository();
+  }
+  const infrastructureActionExecutor =
+    options.infrastructureActionExecutor ?? new GovernedRecordOnlyActionExecutor();
+  const infrastructureService = new InfrastructureService(
+    infrastructureRepository,
+    infrastructureActionExecutor,
+    {
+      cpuWarning: config.INFRA_CPU_WARNING,
+      cpuCritical: config.INFRA_CPU_CRITICAL,
+      memoryWarning: config.INFRA_MEMORY_WARNING,
+      memoryCritical: config.INFRA_MEMORY_CRITICAL,
+      diskWarning: config.INFRA_DISK_WARNING,
+      diskCritical: config.INFRA_DISK_CRITICAL,
+      staleAfterMs: config.INFRA_STALE_AFTER_MS,
+      backupStaleAfterMs: config.INFRA_BACKUP_STALE_AFTER_MS,
+    },
+  );
+  contextCompiler.setInfrastructureContextProvider(infrastructureService);
+
+  if (databasePool) {
     app.addHook("onClose", async () => {
-      await pkmPool?.end();
+      await databasePool.end();
     });
   }
 
@@ -150,11 +188,15 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     status: "ok",
     system: "J.A.R.V.I.S",
     expansion: "Just A Regular Virtual Intelligence System",
-    version: "0.2.0",
+    version: "0.3.0",
     domains: DOMAIN_IDS.length,
     personalKnowledge: {
       storage: options.pkmRepository ? "injected" : config.PKM_STORAGE_DRIVER,
       semanticIndex: options.semanticIndex ? "injected" : config.PKM_SEMANTIC_INDEX,
+    },
+    infrastructureAdministration: {
+      storage: options.infrastructureRepository ? "injected" : config.INFRA_STORAGE_DRIVER,
+      actionExecutor: options.infrastructureActionExecutor ? "injected" : "record-only",
     },
   }));
 
@@ -251,5 +293,6 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   });
 
   registerPkmRoutes(app, pkmService);
+  registerInfrastructureRoutes(app, infrastructureService, config.INFRA_AGENT_TOKEN);
   return app;
 };

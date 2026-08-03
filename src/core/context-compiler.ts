@@ -1,10 +1,15 @@
 import { getDomainManifest } from "../domains/registry.js";
+import type { InfrastructureMissionContext } from "../infrastructure/types.js";
 import type { PkmResumePacket } from "../pkm/types.js";
 import type { MemoryRepository } from "../storage/in-memory.js";
 import type { ContextPacket, EvidenceReference, MissionRecord } from "./types.js";
 
 export interface PersistentContextProvider {
   buildResumePacket(workspaceId: string): Promise<PkmResumePacket>;
+}
+
+export interface InfrastructureContextProvider {
+  buildMissionContext(nodeId?: string): Promise<InfrastructureMissionContext>;
 }
 
 const compactItems = (
@@ -63,11 +68,16 @@ const resumeEvidence = (packet: PkmResumePacket): EvidenceReference[] => {
 
 export class ContextCompiler {
   private persistentContextProvider: PersistentContextProvider | null = null;
+  private infrastructureContextProvider: InfrastructureContextProvider | null = null;
 
   constructor(private readonly memoryRepository: MemoryRepository) {}
 
   setPersistentContextProvider(provider: PersistentContextProvider): void {
     this.persistentContextProvider = provider;
+  }
+
+  setInfrastructureContextProvider(provider: InfrastructureContextProvider): void {
+    this.infrastructureContextProvider = provider;
   }
 
   async compile(mission: MissionRecord): Promise<ContextPacket> {
@@ -106,6 +116,29 @@ export class ContextCompiler {
         uncertainties.push({
           label: "missing",
           statement: `Persistent workspace context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+        });
+      }
+    }
+
+    if (mission.request.domain === "infrastructure-administration" && this.infrastructureContextProvider) {
+      const requestedNodeId = mission.request.inputs.nodeId;
+      try {
+        const context = await this.infrastructureContextProvider.buildMissionContext(
+          typeof requestedNodeId === "string" ? requestedNodeId : undefined,
+        );
+        workingState.push(`Verified infrastructure control-plane state:\n${context.summary}`);
+        evidence.push(...context.evidence.map((reference) => ({
+          ...reference,
+          trust: "internal" as const,
+        })));
+        uncertainties.push(...context.uncertainties.map((statement) => ({
+          label: "missing" as const,
+          statement,
+        })));
+      } catch (error) {
+        uncertainties.push({
+          label: "missing",
+          statement: `Infrastructure context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
         });
       }
     }
