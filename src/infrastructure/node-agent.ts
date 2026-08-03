@@ -1,4 +1,4 @@
-import { LocalHostCollector } from "./collector.js";
+import { LocalHostCollector, type LocalCollectorOptions } from "./collector.js";
 import type { InfrastructureNodeRole } from "./types.js";
 
 const controlUrl = (process.env.INFRA_CONTROL_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");
@@ -13,15 +13,17 @@ if (!Number.isFinite(intervalMs) || intervalMs < 5_000) {
   throw new Error("INFRA_AGENT_INTERVAL_MS must be at least 5000");
 }
 
-const collector = new LocalHostCollector({
-  nodeId: process.env.INFRA_NODE_ID,
-  nodeName: process.env.INFRA_NODE_NAME,
+const collectorOptions: LocalCollectorOptions = {
   role,
   labels,
   capabilities,
-  rootPath: process.env.INFRA_ROOT_PATH,
   agentVersion: "0.3.0",
-});
+};
+if (process.env.INFRA_NODE_ID !== undefined) collectorOptions.nodeId = process.env.INFRA_NODE_ID;
+if (process.env.INFRA_NODE_NAME !== undefined) collectorOptions.nodeName = process.env.INFRA_NODE_NAME;
+if (process.env.INFRA_ROOT_PATH !== undefined) collectorOptions.rootPath = process.env.INFRA_ROOT_PATH;
+
+const collector = new LocalHostCollector(collectorOptions);
 
 const post = async (path: string, body: unknown): Promise<unknown> => {
   const response = await fetch(`${controlUrl}${path}`, {
