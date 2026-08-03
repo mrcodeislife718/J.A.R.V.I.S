@@ -39,9 +39,23 @@ Objective
 - Biomedical operation is research-support only: no autonomous ordering, synthesis, dosing, clinical use, or human experimentation.
 - Agent count is not a performance metric. Verified mission success is.
 
-## Foundation status
+## Version 0.1 foundation
 
-The first implementation establishes the governed execution core, domain manifests, local Ollama routing, in-memory persistence for development, HTTP mission API, verification contracts, audit events, and an evaluation-ready architecture.
+The bootstrap implementation includes:
+
+- Mission compiler and capability graph
+- Seven domain policy manifests
+- Risk assessment, hard policy rejection, and authorization pauses
+- Same-domain approved-memory context compilation
+- Local Ollama adapter and model routing
+- Serial scheduler for constrained local hardware
+- Deterministic verification checks
+- Candidate, approved, and rejected memory states
+- Least-privilege MCP/API tool gateway contract
+- Audit events and token/latency/reliability telemetry
+- Fastify API and integration tests
+
+It deliberately does **not** claim that production persistence, live MCP servers, Qdrant retrieval, customer-account mutation, infrastructure mutation, automated publishing, or laboratory execution already exist.
 
 ## Quick start
 
@@ -49,7 +63,7 @@ Requirements:
 
 - Node.js 20.20.2 or newer
 - npm
-- Optional: Ollama at `http://127.0.0.1:11434`
+- Ollama at `http://127.0.0.1:11434` for live mission execution
 
 ```bash
 cp .env.example .env
@@ -65,14 +79,33 @@ curl -X POST http://localhost:3000/v1/missions \
   -d '{
     "domain": "personal-knowledge",
     "objective": "Turn these project notes into decisions, unresolved questions, and next actions",
-    "requestedCapabilities": ["knowledge.extract", "knowledge.connect"]
+    "requestedCapabilities": ["knowledge.extract", "knowledge.connect"],
+    "inputs": {"notes": "Decision: build one governed core."},
+    "rememberOutput": true
   }'
 ```
 
-Health check:
+Useful endpoints:
+
+```text
+GET  /health
+GET  /v1/domains
+GET  /v1/capabilities?domain=personal-knowledge
+GET  /v1/metrics
+POST /v1/missions
+GET  /v1/missions
+GET  /v1/missions/:id
+POST /v1/missions/:id/authorize
+GET  /v1/missions/:id/audit
+GET  /v1/memory?status=candidate
+POST /v1/memory/:id/approve
+POST /v1/memory/:id/reject
+```
+
+Start local persistence services for later adapters:
 
 ```bash
-curl http://localhost:3000/health
+docker compose up -d postgres qdrant redis
 ```
 
 ## Development commands
@@ -85,9 +118,13 @@ npm run build
 npm start
 ```
 
-## Architecture
+## Documentation
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DOMAIN-BOUNDARIES.md`](docs/DOMAIN-BOUNDARIES.md), and [`SECURITY.md`](SECURITY.md).
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`docs/DOMAIN-BOUNDARIES.md`](docs/DOMAIN-BOUNDARIES.md)
+- [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md)
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`SECURITY.md`](SECURITY.md)
 
 ## License
 
