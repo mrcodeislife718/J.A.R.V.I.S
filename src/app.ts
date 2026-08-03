@@ -77,6 +77,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     modelRouter,
     auditRepository,
     config.MODEL_TIMEOUT_MS,
+    config.MAX_PARALLEL_GENERATIONS,
   );
   const verifier = new VerificationEngine();
   const memoryGate = new MemoryGate(memoryRepository);
