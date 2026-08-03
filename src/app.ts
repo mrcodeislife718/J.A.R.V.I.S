@@ -138,6 +138,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
       ? new QdrantSemanticIndex(config.QDRANT_URL, config.QDRANT_COLLECTION)
       : new NoopSemanticIndex());
   const pkmService = new PkmService(pkmRepository, blobStore, embeddingClient, semanticIndex);
+  contextCompiler.setPersistentContextProvider(pkmService);
 
   if (pkmPool) {
     app.addHook("onClose", async () => {
