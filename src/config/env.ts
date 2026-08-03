@@ -41,6 +41,9 @@ const envSchema = z.object({
   INFRA_BACKUP_STALE_AFTER_MS: z.coerce.number().int().min(60_000).default(604_800_000),
   INFRA_CONTROL_URL: z.url().default("http://127.0.0.1:3000"),
   INFRA_AGENT_INTERVAL_MS: z.coerce.number().int().min(5_000).default(30_000),
+  ANALYTICS_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
+  ANALYTICS_MAX_QUERY_ROWS: z.coerce.number().int().min(1).max(1_000_000).default(10_000),
+  ANALYTICS_QUERY_TIMEOUT_MS: z.coerce.number().int().min(100).max(600_000).default(30_000),
 });
 
 export type RuntimeConfig = z.infer<typeof envSchema>;
