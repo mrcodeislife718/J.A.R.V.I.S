@@ -44,6 +44,10 @@ export interface InfrastructureCapacity {
   gpuMemoryTotalBytes: number | null;
 }
 
+export type InfrastructureCapacityPatch = {
+  [Key in keyof InfrastructureCapacity]?: InfrastructureCapacity[Key] | undefined;
+};
+
 export interface InfrastructureNode {
   id: string;
   name: string;
@@ -180,11 +184,15 @@ export interface InfrastructureBackupVerification {
 }
 
 export interface InfrastructureNodeHeartbeat {
-  observedAt?: string;
-  capacity?: Partial<InfrastructureCapacity>;
+  observedAt?: string | undefined;
+  capacity?: InfrastructureCapacityPatch | undefined;
   metric: Omit<InfrastructureMetricSample, "id" | "nodeId" | "observedAt">;
-  services?: Array<Omit<InfrastructureServiceRecord, "nodeId" | "lastCheckedAt"> & { lastCheckedAt?: string }>;
-  metadata?: Record<string, unknown>;
+  services?: Array<
+    Omit<InfrastructureServiceRecord, "nodeId" | "lastCheckedAt"> & {
+      lastCheckedAt?: string | undefined;
+    }
+  > | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface InfrastructureNodeView {
