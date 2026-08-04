@@ -17,9 +17,16 @@ import type {
   SupportWorkspace,
 } from "./types.js";
 
-type ExplicitOptional<T> = {
-  [Key in keyof T]: undefined extends T[Key] ? T[Key] | undefined : T[Key];
-};
+type ExplicitOptional<T> =
+  T extends readonly (infer Item)[]
+    ? ExplicitOptional<Item>[]
+    : T extends object
+      ? {
+          [Key in keyof T]: undefined extends T[Key]
+            ? ExplicitOptional<Exclude<T[Key], undefined>> | undefined
+            : ExplicitOptional<T[Key]>;
+        }
+      : T;
 
 declare module "./service.js" {
   interface SupportService {
