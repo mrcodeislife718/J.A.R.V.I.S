@@ -11,8 +11,18 @@ import {
 import type { AnalyticsRepository } from "./analytics/repository.js";
 import { registerAnalyticsRoutes } from "./analytics/routes.js";
 import { AnalyticsService } from "./analytics/service.js";
+import { InMemoryBusinessRepository } from "./business/in-memory-repository.js";
+import { PostgresBusinessRepository } from "./business/postgres-repository.js";
+import type { BusinessRepository } from "./business/repository.js";
+import { registerBusinessRoutes } from "./business/routes.js";
+import { BusinessService } from "./business/service.js";
 import { listCapabilities } from "./capabilities/registry.js";
 import { config } from "./config/env.js";
+import { InMemoryContentRepository } from "./content/in-memory-repository.js";
+import { PostgresContentRepository } from "./content/postgres-repository.js";
+import type { ContentRepository } from "./content/repository.js";
+import { registerContentRoutes } from "./content/routes.js";
+import { ContentService } from "./content/service.js";
 import { ContextCompiler } from "./core/context-compiler.js";
 import { ExecutionScheduler } from "./core/execution-scheduler.js";
 import { MemoryGate } from "./core/memory-gate.js";
@@ -92,6 +102,8 @@ export interface BuildAppOptions {
   infrastructureActionExecutor?: InfrastructureActionExecutor;
   analyticsRepository?: AnalyticsRepository;
   analyticsQueryExecutor?: AnalyticsQueryExecutor;
+  businessRepository?: BusinessRepository;
+  contentRepository?: ContentRepository;
   logger?: boolean;
 }
 
@@ -140,7 +152,9 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   const needsDatabasePool =
     (!options.pkmRepository && config.PKM_STORAGE_DRIVER === "postgres") ||
     (!options.infrastructureRepository && config.INFRA_STORAGE_DRIVER === "postgres") ||
-    (!options.analyticsRepository && config.ANALYTICS_STORAGE_DRIVER === "postgres");
+    (!options.analyticsRepository && config.ANALYTICS_STORAGE_DRIVER === "postgres") ||
+    (!options.businessRepository && config.BUSINESS_STORAGE_DRIVER === "postgres") ||
+    (!options.contentRepository && config.CONTENT_STORAGE_DRIVER === "postgres");
   const databasePool: Pool | null = needsDatabasePool
     ? createPostgresPool(config.DATABASE_URL)
     : null;
@@ -207,6 +221,24 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   );
   contextCompiler.setAnalyticsContextProvider(analyticsService);
 
+  let businessRepository = options.businessRepository;
+  if (!businessRepository) {
+    businessRepository = config.BUSINESS_STORAGE_DRIVER === "postgres"
+      ? new PostgresBusinessRepository(databasePool as Pool)
+      : new InMemoryBusinessRepository();
+  }
+  const businessService = new BusinessService(businessRepository);
+  contextCompiler.setBusinessContextProvider(businessService);
+
+  let contentRepository = options.contentRepository;
+  if (!contentRepository) {
+    contentRepository = config.CONTENT_STORAGE_DRIVER === "postgres"
+      ? new PostgresContentRepository(databasePool as Pool)
+      : new InMemoryContentRepository();
+  }
+  const contentService = new ContentService(contentRepository);
+  contextCompiler.setContentContextProvider(contentService);
+
   if (databasePool) {
     app.addHook("onClose", async () => {
       await databasePool.end();
@@ -217,7 +249,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     status: "ok",
     system: "J.A.R.V.I.S",
     expansion: "Just A Regular Virtual Intelligence System",
-    version: "0.4.0",
+    version: "0.5.0",
     domains: DOMAIN_IDS.length,
     personalKnowledge: {
       storage: options.pkmRepository ? "injected" : config.PKM_STORAGE_DRIVER,
@@ -232,6 +264,13 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
       queryExecutor: options.analyticsQueryExecutor ? "injected" : "refusing",
       maxRows: config.ANALYTICS_MAX_QUERY_ROWS,
       timeoutMs: config.ANALYTICS_QUERY_TIMEOUT_MS,
+    },
+    businessOperations: {
+      storage: options.businessRepository ? "injected" : config.BUSINESS_STORAGE_DRIVER,
+    },
+    contentProduction: {
+      storage: options.contentRepository ? "injected" : config.CONTENT_STORAGE_DRIVER,
+      publishing: "record-only",
     },
   }));
 
@@ -330,5 +369,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   registerPkmRoutes(app, pkmService);
   registerInfrastructureRoutes(app, infrastructureService, config.INFRA_AGENT_TOKEN);
   registerAnalyticsRoutes(app, analyticsService);
+  registerBusinessRoutes(app, businessService);
+  registerContentRoutes(app, contentService);
   return app;
 };
