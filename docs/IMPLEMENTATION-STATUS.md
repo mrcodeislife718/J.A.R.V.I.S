@@ -38,21 +38,59 @@
 ## Implemented in 0.3 — Infrastructure Administration foundation
 
 - Machine and service inventory
-- Node roles, labels, capabilities, and capacity records
 - Token-gated node registration and heartbeats
-- Shell-free local host collector
-- CPU, load, memory, swap, disk, temperature, network, process, and service-health telemetry contracts
+- CPU, load, memory, swap, disk, temperature, network, process, and service-health records
 - Configurable health thresholds and deduplicated alerts
-- Stale-node detection
-- Resource-aware node selection
+- Stale-node detection and resource-aware node selection
 - PostgreSQL fleet persistence
 - Incident records and timelines
 - Backup registry and verification records
-- Proposed, approved, rejected, executing, succeeded, and failed action states
-- Scoped approvals and idempotency keys
+- Scoped, idempotent infrastructure action proposals
 - Record-only default executor that refuses unsupported privileged changes
 - Fleet state supplied as evidence to Infrastructure Administration missions
-- API, in-memory integration tests, and PostgreSQL restart-persistence tests
+
+## Implemented in 0.4 — Governed Analytics
+
+- Persistent data-source registry with sensitivity and access requirements
+- Opaque credential references
+- Versioned schema snapshots and fingerprints
+- Conservative read-only SQL validation
+- Refusing default query executor
+- Reviewed metric definitions and deterministic calculations
+- Data-quality checks and dataset profiles
+- Forecast backtesting against an explicit baseline
+- Source-to-result lineage
+- Reviewed report definitions and snapshots
+- Analytics mission context
+- PostgreSQL restart-persistence tests
+
+## Implemented in 0.5 — Business Operations and Content Production
+
+### Business Operations
+
+- Organizations with explicit owner authority
+- Projects, milestones, dependencies, bottlenecks, success criteria, and completion evidence
+- Enforced recommendation, decision, authorization, execution, and verification stages
+- Candidate and reviewed SOPs
+- Deterministic financial scenarios with preserved assumptions
+- Risk scoring, triggers, mitigations, and contingencies
+- Meeting records and assigned actions
+- Reproducible weekly operating reports
+- PostgreSQL persistence and append-only business events
+- Governed business state supplied to Business Operations missions
+
+### Content Production
+
+- Brand voice, prohibited claims, required disclosures, and approved platforms
+- Candidate and reviewed sources with credibility, rights, locators, and supported claims
+- Reviewed briefs and claim-level draft evidence checks
+- Character-limit, required-message, disclosure, and prohibited-language enforcement
+- Human draft and publication approval gates
+- Record-only external publication completion
+- Deterministic content performance calculations
+- Evidence-backed content experiments
+- PostgreSQL persistence and append-only content events
+- Governed content state supplied to Content Production missions
 
 ## Production work still required
 
@@ -67,7 +105,9 @@
 - Platform-specific service, container, GPU, temperature, swap, and network collectors
 - Automated rollback and postcondition verification
 - Real backup restore adapters
-- Source connectors for literature, patents, policies, tickets, business data, and content performance
+- Governed business connectors for accounting, CRM, calendar, contracts, and grants
+- Governed content connectors for research, asset storage, platform analytics, and approved publishing
+- Source connectors for literature, patents, policies, tickets, and customer systems
 - Domain-specific production evaluation suites
 - Cross-domain approved-artifact bridge
 - High availability, worker failover, and disaster recovery
@@ -79,6 +119,8 @@
 - Autonomous biological ordering or synthesis
 - Arbitrary shell execution
 - Autonomous destructive infrastructure changes
+- Unauthorized spending, contract acceptance, or ownership transfer
 - Customer-account or refund mutations
-- Automated publication
+- Automated publication or paid promotion
+- Fabricated sources, quotations, metrics, or financial representations
 - Claims of production security, regulatory compliance, or benchmark superiority without independent evidence
