@@ -92,6 +92,26 @@
 - PostgreSQL persistence and append-only content events
 - Governed content state supplied to Content Production missions
 
+## Implemented in 0.6 — Governed Customer Support
+
+- Isolated support workspaces, customer references, products, tickets, and append-only events
+- Versioned candidate, approved, rejected, and retired policies
+- Policy effective-date and exact-version selection
+- Versioned candidate and reviewed troubleshooting playbooks
+- Deterministic category, priority, frustration, legal, security, privacy, and safety triage
+- Explainable triage reasons and escalation queues
+- Policy-version attachment to tickets
+- Approved-playbook troubleshooting plans with expected signals and failure escalation
+- Human handoff requests and acceptance records
+- Approved-policy requirement for refunds, account changes, policy exceptions, and legal responses
+- Explicit human authorization before privileged action completion
+- Idempotent, record-only external completion with evidence and external references
+- Evidence-required ticket resolution
+- Deterministic support-quality scoring
+- Repeated-failure clustering with stable signatures and ticket lineage
+- PostgreSQL persistence and restart-persistence validation
+- Governed Customer Support state supplied to Customer Support missions
+
 ## Production work still required
 
 - Authentication, organizations, roles, and capability tokens
@@ -107,7 +127,9 @@
 - Real backup restore adapters
 - Governed business connectors for accounting, CRM, calendar, contracts, and grants
 - Governed content connectors for research, asset storage, platform analytics, and approved publishing
-- Source connectors for literature, patents, policies, tickets, and customer systems
+- Governed customer-support connectors for help desks, CRM, identity, billing, and product telemetry
+- Approved message-delivery and customer-account mutation adapters
+- PII encryption, field-level access control, retention enforcement, and deletion workflows
 - Domain-specific production evaluation suites
 - Cross-domain approved-artifact bridge
 - High availability, worker failover, and disaster recovery
@@ -120,7 +142,8 @@
 - Arbitrary shell execution
 - Autonomous destructive infrastructure changes
 - Unauthorized spending, contract acceptance, or ownership transfer
-- Customer-account or refund mutations
+- Direct customer-account or refund mutations
+- Automated customer communication, legal admissions, or policy waivers
 - Automated publication or paid promotion
-- Fabricated sources, quotations, metrics, or financial representations
+- Fabricated sources, quotations, metrics, financial representations, or customer evidence
 - Claims of production security, regulatory compliance, or benchmark superiority without independent evidence

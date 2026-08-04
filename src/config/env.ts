@@ -46,6 +46,7 @@ const envSchema = z.object({
   ANALYTICS_QUERY_TIMEOUT_MS: z.coerce.number().int().min(100).max(600_000).default(30_000),
   BUSINESS_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
   CONTENT_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
+  SUPPORT_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
 });
 
 export type RuntimeConfig = z.infer<typeof envSchema>;

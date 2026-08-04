@@ -64,6 +64,11 @@ import {
   InMemoryMissionRepository,
 } from "./storage/in-memory.js";
 import { createPostgresPool } from "./storage/postgres.js";
+import { InMemorySupportRepository } from "./support/in-memory-repository.js";
+import { PostgresSupportRepository } from "./support/postgres-repository.js";
+import type { SupportRepository } from "./support/repository.js";
+import { registerSupportRoutes } from "./support/routes.js";
+import { SupportService } from "./support/service.js";
 
 const missionRequestSchema = z.object({
   domain: z.enum(DOMAIN_IDS),
@@ -104,6 +109,7 @@ export interface BuildAppOptions {
   analyticsQueryExecutor?: AnalyticsQueryExecutor;
   businessRepository?: BusinessRepository;
   contentRepository?: ContentRepository;
+  supportRepository?: SupportRepository;
   logger?: boolean;
 }
 
@@ -154,7 +160,8 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     (!options.infrastructureRepository && config.INFRA_STORAGE_DRIVER === "postgres") ||
     (!options.analyticsRepository && config.ANALYTICS_STORAGE_DRIVER === "postgres") ||
     (!options.businessRepository && config.BUSINESS_STORAGE_DRIVER === "postgres") ||
-    (!options.contentRepository && config.CONTENT_STORAGE_DRIVER === "postgres");
+    (!options.contentRepository && config.CONTENT_STORAGE_DRIVER === "postgres") ||
+    (!options.supportRepository && config.SUPPORT_STORAGE_DRIVER === "postgres");
   const databasePool: Pool | null = needsDatabasePool
     ? createPostgresPool(config.DATABASE_URL)
     : null;
@@ -239,6 +246,15 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   const contentService = new ContentService(contentRepository);
   contextCompiler.setContentContextProvider(contentService);
 
+  let supportRepository = options.supportRepository;
+  if (!supportRepository) {
+    supportRepository = config.SUPPORT_STORAGE_DRIVER === "postgres"
+      ? new PostgresSupportRepository(databasePool as Pool)
+      : new InMemorySupportRepository();
+  }
+  const supportService = new SupportService(supportRepository);
+  contextCompiler.setSupportContextProvider(supportService);
+
   if (databasePool) {
     app.addHook("onClose", async () => {
       await databasePool.end();
@@ -249,7 +265,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     status: "ok",
     system: "J.A.R.V.I.S",
     expansion: "Just A Regular Virtual Intelligence System",
-    version: "0.5.0",
+    version: "0.6.0",
     domains: DOMAIN_IDS.length,
     personalKnowledge: {
       storage: options.pkmRepository ? "injected" : config.PKM_STORAGE_DRIVER,
@@ -271,6 +287,11 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     contentProduction: {
       storage: options.contentRepository ? "injected" : config.CONTENT_STORAGE_DRIVER,
       publishing: "record-only",
+    },
+    customerSupport: {
+      storage: options.supportRepository ? "injected" : config.SUPPORT_STORAGE_DRIVER,
+      externalMutations: "record-only",
+      privilegedActions: "human-approval-required",
     },
   }));
 
@@ -371,5 +392,6 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   registerAnalyticsRoutes(app, analyticsService);
   registerBusinessRoutes(app, businessService);
   registerContentRoutes(app, contentService);
+  registerSupportRoutes(app, supportService);
   return app;
 };

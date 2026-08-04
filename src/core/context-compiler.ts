@@ -4,6 +4,7 @@ import type { ContentMissionContext } from "../content/types.js";
 import { getDomainManifest } from "../domains/registry.js";
 import type { InfrastructureMissionContext } from "../infrastructure/types.js";
 import type { PkmResumePacket } from "../pkm/types.js";
+import type { SupportMissionContext } from "../support/types.js";
 import type { MemoryRepository } from "../storage/in-memory.js";
 import type { ContextPacket, EvidenceReference, MissionRecord } from "./types.js";
 
@@ -25,6 +26,10 @@ export interface BusinessContextProvider {
 
 export interface ContentContextProvider {
   buildMissionContext(brandId?: string, draftId?: string): Promise<ContentMissionContext>;
+}
+
+export interface SupportContextProvider {
+  buildMissionContext(workspaceId?: string, ticketId?: string): Promise<SupportMissionContext>;
 }
 
 const compactItems = (
@@ -86,7 +91,11 @@ const appendGovernedContext = (
   evidence: EvidenceReference[],
   uncertainties: ContextPacket["uncertainties"],
   label: string,
-  context: { summary: string; evidence: Array<{ id: string; source: string; locator: string; retrievedAt: string }>; uncertainties: string[] },
+  context: {
+    summary: string;
+    evidence: Array<{ id: string; source: string; locator: string; retrievedAt: string }>;
+    uncertainties: string[];
+  },
 ): void => {
   workingState.push(`${label}:\n${context.summary}`);
   evidence.push(...context.evidence.map((reference) => ({ ...reference, trust: "internal" as const })));
@@ -99,6 +108,7 @@ export class ContextCompiler {
   private analyticsContextProvider: AnalyticsContextProvider | null = null;
   private businessContextProvider: BusinessContextProvider | null = null;
   private contentContextProvider: ContentContextProvider | null = null;
+  private supportContextProvider: SupportContextProvider | null = null;
 
   constructor(private readonly memoryRepository: MemoryRepository) {}
 
@@ -120,6 +130,10 @@ export class ContextCompiler {
 
   setContentContextProvider(provider: ContentContextProvider): void {
     this.contentContextProvider = provider;
+  }
+
+  setSupportContextProvider(provider: SupportContextProvider): void {
+    this.supportContextProvider = provider;
   }
 
   async compile(mission: MissionRecord): Promise<ContextPacket> {
@@ -242,6 +256,28 @@ export class ContextCompiler {
         uncertainties.push({
           label: "missing",
           statement: `Content context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+        });
+      }
+    }
+
+    if (mission.request.domain === "customer-support" && this.supportContextProvider) {
+      const supportWorkspaceId = mission.request.inputs.workspaceId;
+      const ticketId = mission.request.inputs.ticketId;
+      try {
+        appendGovernedContext(
+          workingState,
+          evidence,
+          uncertainties,
+          "Governed customer support state",
+          await this.supportContextProvider.buildMissionContext(
+            typeof supportWorkspaceId === "string" ? supportWorkspaceId : undefined,
+            typeof ticketId === "string" ? ticketId : undefined,
+          ),
+        );
+      } catch (error) {
+        uncertainties.push({
+          label: "missing",
+          statement: `Customer support context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
         });
       }
     }
