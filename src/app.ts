@@ -11,6 +11,11 @@ import {
 import type { AnalyticsRepository } from "./analytics/repository.js";
 import { registerAnalyticsRoutes } from "./analytics/routes.js";
 import { AnalyticsService } from "./analytics/service.js";
+import { InMemoryBiomedicalRepository } from "./biomedical/in-memory-repository.js";
+import { PostgresBiomedicalRepository } from "./biomedical/postgres-repository.js";
+import type { BiomedicalRepository } from "./biomedical/repository.js";
+import { registerBiomedicalRoutes } from "./biomedical/routes.js";
+import { BiomedicalService } from "./biomedical/service.js";
 import { InMemoryBusinessRepository } from "./business/in-memory-repository.js";
 import { PostgresBusinessRepository } from "./business/postgres-repository.js";
 import type { BusinessRepository } from "./business/repository.js";
@@ -107,6 +112,7 @@ export interface BuildAppOptions {
   infrastructureActionExecutor?: InfrastructureActionExecutor;
   analyticsRepository?: AnalyticsRepository;
   analyticsQueryExecutor?: AnalyticsQueryExecutor;
+  biomedicalRepository?: BiomedicalRepository;
   businessRepository?: BusinessRepository;
   contentRepository?: ContentRepository;
   supportRepository?: SupportRepository;
@@ -159,6 +165,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     (!options.pkmRepository && config.PKM_STORAGE_DRIVER === "postgres") ||
     (!options.infrastructureRepository && config.INFRA_STORAGE_DRIVER === "postgres") ||
     (!options.analyticsRepository && config.ANALYTICS_STORAGE_DRIVER === "postgres") ||
+    (!options.biomedicalRepository && config.BIOMEDICAL_STORAGE_DRIVER === "postgres") ||
     (!options.businessRepository && config.BUSINESS_STORAGE_DRIVER === "postgres") ||
     (!options.contentRepository && config.CONTENT_STORAGE_DRIVER === "postgres") ||
     (!options.supportRepository && config.SUPPORT_STORAGE_DRIVER === "postgres");
@@ -228,6 +235,15 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   );
   contextCompiler.setAnalyticsContextProvider(analyticsService);
 
+  let biomedicalRepository = options.biomedicalRepository;
+  if (!biomedicalRepository) {
+    biomedicalRepository = config.BIOMEDICAL_STORAGE_DRIVER === "postgres"
+      ? new PostgresBiomedicalRepository(databasePool as Pool)
+      : new InMemoryBiomedicalRepository();
+  }
+  const biomedicalService = new BiomedicalService(biomedicalRepository);
+  contextCompiler.setBiomedicalContextProvider(biomedicalService);
+
   let businessRepository = options.businessRepository;
   if (!businessRepository) {
     businessRepository = config.BUSINESS_STORAGE_DRIVER === "postgres"
@@ -265,7 +281,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
     status: "ok",
     system: "J.A.R.V.I.S",
     expansion: "Just A Regular Virtual Intelligence System",
-    version: "0.6.0",
+    version: "0.7.0",
     domains: DOMAIN_IDS.length,
     personalKnowledge: {
       storage: options.pkmRepository ? "injected" : config.PKM_STORAGE_DRIVER,
@@ -280,6 +296,11 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
       queryExecutor: options.analyticsQueryExecutor ? "injected" : "refusing",
       maxRows: config.ANALYTICS_MAX_QUERY_ROWS,
       timeoutMs: config.ANALYTICS_QUERY_TIMEOUT_MS,
+    },
+    biomedicalResearch: {
+      storage: options.biomedicalRepository ? "injected" : config.BIOMEDICAL_STORAGE_DRIVER,
+      externalLaboratoryExecution: "qualified-lab-and-human-authorization-required",
+      autonomousWetLabExecution: "disabled",
     },
     businessOperations: {
       storage: options.businessRepository ? "injected" : config.BUSINESS_STORAGE_DRIVER,
@@ -390,6 +411,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   registerPkmRoutes(app, pkmService);
   registerInfrastructureRoutes(app, infrastructureService, config.INFRA_AGENT_TOKEN);
   registerAnalyticsRoutes(app, analyticsService);
+  registerBiomedicalRoutes(app, biomedicalService);
   registerBusinessRoutes(app, businessService);
   registerContentRoutes(app, contentService);
   registerSupportRoutes(app, supportService);

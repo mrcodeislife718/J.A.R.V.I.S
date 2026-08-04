@@ -47,6 +47,7 @@ const envSchema = z.object({
   BUSINESS_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
   CONTENT_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
   SUPPORT_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
+  BIOMEDICAL_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
 });
 
 export type RuntimeConfig = z.infer<typeof envSchema>;

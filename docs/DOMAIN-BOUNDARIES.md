@@ -6,7 +6,7 @@ J.A.R.V.I.S contains one governed core and seven isolated operating domains. Sha
 
 Every domain receives a dedicated:
 
-- Database schema
+- Database schema or authoritative table partition
 - Vector collection
 - Knowledge-graph partition
 - Object-storage prefix
@@ -18,23 +18,49 @@ Every domain receives a dedicated:
 - Retention schedule
 - Human approval policy
 
-The bootstrap implementation enforces capability and memory-namespace separation in code. Persistent infrastructure separation is a production milestone.
+The current implementation enforces capability, repository, mission-context, and memory-namespace separation in code. Strong production identity, encryption, credential, vector, graph, and object-storage isolation remain production milestones.
 
-## Biomedical Research
+## Biomedical Research and Development
 
-Permitted purpose: evidence organization, mechanism comparison, research-question development, supplied-data analysis, IP mapping, and translational planning for qualified researchers.
+Permitted purpose: full governed scientific and commercial development support for independent scientists, research companies, universities, HBCUs, laboratories, CROs, CDMOs, and other qualified partners.
+
+Permitted functions include:
+
+- Scientific, patent, clinical-trial, regulatory, laboratory, grant, market, and competitor intelligence
+- Disease, subtype, target, pathway, mechanism, biomarker, intervention, delivery, manufacturing, regulatory, and market graph development
+- Evidence-quality, retraction, bias, control, replication, limitation, contradiction, and uncertainty analysis
+- Falsifiable hypothesis and development-plan preparation
+- Formulation, delivery, synthesis-option, gene-editing, nanoparticle, toxicology, manufacturing, and clinical-translation analysis in a professional research context
+- Laboratory qualification and matching
+- NDA, RFI, RFQ, SOW, contract-reference, deliverable, raw-data, chain-of-custody, and result-verification coordination
+- IP, inventorship, ownership, prior-art, enablement, disclosure, filing, licensing, and technology-transfer planning
+- Grant, government-contract, partner, budget, manufacturing, commercialization, and revenue strategy
+
+Authority model:
+
+```text
+scientific analysis or recommendation
+  -> owner or principal-investigator decision
+  -> bounded authorization
+  -> qualified professional external execution
+  -> raw data and result package returned
+  -> independent verification
+  -> advancement, iteration, pivot, licensing, partnership, or termination
+```
 
 Hard boundaries:
 
-- No autonomous ordering or purchasing
-- No autonomous synthesis
-- No actionable human dosing or administration
-- No clinical use
-- No human experimentation
-- No pathogen-enhancement assistance
-- No unreviewed transfer into wet-lab execution
+- No self-administration or self-experimentation workflow for an untested intervention
+- No actionable human dosing schedule for an untested intervention
+- No evasion of required ethics, regulatory, biosafety, quality, or institutional oversight
+- No pathogen enhancement or increased virulence/transmissibility work
+- No fabricated evidence, raw data, certificates, laboratory reports, or provenance
+- No autonomous wet-lab execution by J.A.R.V.I.S
+- No external laboratory commitment, contract, or financial authorization without proper owner, principal-investigator, or authorized-executive authority
 
-Cancer subtypes, HIV, and nanotechnology must receive separate graph partitions and evaluation suites beneath the biomedical control layer.
+Normal scientific words and development categories are not themselves prohibited. Context, authority, evidence, and execution controls determine whether a workflow is permitted.
+
+Disease areas and technologies may receive dedicated workspaces, programs, graph partitions, policies, partner scopes, and evaluation suites beneath the shared biomedical control layer.
 
 ## Business Operations
 
@@ -109,9 +135,9 @@ Hard boundaries:
 Domains exchange approved artifacts, never unrestricted raw memory.
 
 ```text
-Biomedical Research
-  -> approved, de-risked research summary
-  -> Content Production
+Biomedical Research and Development
+  -> approved research, IP, funding, regulatory, manufacturing, or commercialization artifact
+  -> Business Operations, Analytics, Content Production, or Personal Knowledge
 
 Customer Support
   -> anonymized recurring-problem report
@@ -132,9 +158,9 @@ Every bridge record must contain:
 - Destination domain
 - Artifact type and version
 - Provenance
-- Privacy classification
+- Privacy and confidentiality classification
 - Approval identity and time
 - Permitted use
 - Expiration or retention rule
 
-A destination domain receives only the approved artifact, not access to the source domain's underlying store.
+A destination domain receives only the approved artifact, not access to the source domain's underlying store. The approved-artifact bridge itself remains a production milestone unless a specific transfer contract is already implemented and tested.
