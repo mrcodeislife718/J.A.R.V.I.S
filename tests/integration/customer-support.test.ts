@@ -192,7 +192,7 @@ test("customer support uses reviewed policies, approved playbooks, triage, and h
     url: "/v1/support/tickets/ticket-tech-1/messages",
     payload: {
       authorType: "customer",
-      body: "THIS IS UNACCEPTABLE!!! I AM FURIOUS AND IT IS STILL NOT FIXED!!!",
+      body: "THIS IS UNACCEPTABLE!!! I AM FURIOUS, FRUSTRATED, ANGRY, UPSET, AND DISAPPOINTED BECAUSE IT IS STILL NOT FIXED!!!",
       actor: "customer-1",
     },
   });
