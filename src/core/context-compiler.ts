@@ -1,4 +1,5 @@
 import type { AnalyticsMissionContext } from "../analytics/types.js";
+import type { BiomedicalMissionContext } from "../biomedical/types.js";
 import type { BusinessMissionContext } from "../business/types.js";
 import type { ContentMissionContext } from "../content/types.js";
 import { getDomainManifest } from "../domains/registry.js";
@@ -18,6 +19,10 @@ export interface InfrastructureContextProvider {
 
 export interface AnalyticsContextProvider {
   buildMissionContext(sourceId?: string, metricId?: string): Promise<AnalyticsMissionContext>;
+}
+
+export interface BiomedicalContextProvider {
+  buildMissionContext(workspaceId?: string, programId?: string): Promise<BiomedicalMissionContext>;
 }
 
 export interface BusinessContextProvider {
@@ -106,6 +111,7 @@ export class ContextCompiler {
   private persistentContextProvider: PersistentContextProvider | null = null;
   private infrastructureContextProvider: InfrastructureContextProvider | null = null;
   private analyticsContextProvider: AnalyticsContextProvider | null = null;
+  private biomedicalContextProvider: BiomedicalContextProvider | null = null;
   private businessContextProvider: BusinessContextProvider | null = null;
   private contentContextProvider: ContentContextProvider | null = null;
   private supportContextProvider: SupportContextProvider | null = null;
@@ -122,6 +128,10 @@ export class ContextCompiler {
 
   setAnalyticsContextProvider(provider: AnalyticsContextProvider): void {
     this.analyticsContextProvider = provider;
+  }
+
+  setBiomedicalContextProvider(provider: BiomedicalContextProvider): void {
+    this.biomedicalContextProvider = provider;
   }
 
   setBusinessContextProvider(provider: BusinessContextProvider): void {
@@ -214,6 +224,28 @@ export class ContextCompiler {
         uncertainties.push({
           label: "missing",
           statement: `Analytics context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+        });
+      }
+    }
+
+    if (mission.request.domain === "biomedical-research" && this.biomedicalContextProvider) {
+      const biomedicalWorkspaceId = mission.request.inputs.workspaceId;
+      const programId = mission.request.inputs.programId;
+      try {
+        appendGovernedContext(
+          workingState,
+          evidence,
+          uncertainties,
+          "Governed biomedical research, development, laboratory, IP, funding, manufacturing, and commercialization state",
+          await this.biomedicalContextProvider.buildMissionContext(
+            typeof biomedicalWorkspaceId === "string" ? biomedicalWorkspaceId : undefined,
+            typeof programId === "string" ? programId : undefined,
+          ),
+        );
+      } catch (error) {
+        uncertainties.push({
+          label: "missing",
+          statement: `Biomedical context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
         });
       }
     }
