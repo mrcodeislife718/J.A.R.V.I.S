@@ -112,12 +112,42 @@
 - PostgreSQL persistence and restart-persistence validation
 - Governed Customer Support state supplied to Customer Support missions
 
+## Implemented in 0.7 — Governed Biomedical Research and Development
+
+- BIO-GENE-style biomedical workspaces and research programs
+- Permanent eight-node maps for Input, Process, Output, Feedback, Incentives, Bottlenecks, Dependencies, and Failure Points
+- Program-level scientific impact, commercial thesis, success criteria, termination criteria, next actions, and uncertainty records
+- Evidence-source provenance hashes
+- Study-design classification, retraction status, sample/model information, endpoints, findings, limitations, conflicts, controls, bias, and replication records
+- Deterministic evidence-quality scores and confidence labels
+- Review-gated scientific claims linked only to approved evidence
+- Contradiction ledgers, plausible explanations, resolution requirements, and resolution states
+- Disease, subtype, gene, protein, cell, tissue, pathway, mechanism, biomarker, target, intervention, delivery, manufacturing, regulatory, and market graph records
+- Falsifiable hypotheses with assumptions, uncertainties, supporting and contradicting claims, translational potential, and commercial potential
+- Review-gated computational, assay, preclinical, analytical, manufacturing-development, and translational development plans
+- Explicit controls, endpoints, success criteria, failure criteria, required capabilities, quality systems, budgets, timelines, and risks
+- University, HBCU, CRO, CDMO, core-facility, testing-laboratory, biobank, and consultancy partner records
+- Laboratory capability, equipment, quality-system, biosafety, certification, data-return, IP-term, confidentiality, availability, pricing, and risk qualification
+- Governed capability-review, NDA, RFI, RFQ, SOW, contract, authorization, professional-execution, result-receipt, verification, and closure lifecycle
+- External-laboratory deliverables, raw-data requirements, chain of custody, budget ceiling, timeline, contract references, authorization scope, result references, and verification evidence
+- Regulatory pathway, intended-use, agency, evidence, quality-system, ethics, risk, and milestone records
+- Invention, inventorship, ownership, prior-art, differentiator, enablement-gap, disclosure, filing, licensing, and abandonment records
+- Grant and government-contract opportunity, eligibility, strategic fit, partner, award, deadline, owner, and next-action records
+- Manufacturing-readiness records for critical quality attributes, raw materials, analytical methods, process development, stability, packaging, technology transfer, cost assumptions, and scale-up risks
+- Commercialization records for licensing, co-development, research tools, diagnostics, services, data, software, government contracts, product sales, acquisition, and spinout paths
+- Separated recommendation, owner or principal-investigator decision, and verification gates
+- Narrow hard stops for self-administration, actionable human dosing of untested interventions, oversight evasion, pathogen enhancement, fabricated evidence, autonomous wet-lab execution, and unauthorized laboratory commitments
+- Normal professional research concepts, external synthesis planning, formulation, gene editing, nanoparticles, animal models, toxicology, manufacturing, and clinical translation are not categorically blocked
+- In-memory and PostgreSQL persistence with append-only biomedical events
+- Biomedical mission context containing approved evidence, claims, contradictions, hypotheses, external engagements, funding, IP, manufacturing, and commercialization state
+- Integration and PostgreSQL restart-persistence tests
+
 ## Production work still required
 
 - Authentication, organizations, roles, and capability tokens
 - Per-node cryptographic identity, TLS, enrollment approval, and secret rotation
 - Qdrant hybrid dense/sparse retrieval and learned reranking
-- Encrypted object storage for original artifacts
+- Encrypted object storage for original artifacts, raw scientific data, contracts, and laboratory reports
 - Redis queue, leases, transactional capacity reservations, and distributed scheduling
 - Model residency, warm-cache, load, unload, and spillover policies
 - Live MCP server discovery and governed invocation
@@ -125,25 +155,32 @@
 - Platform-specific service, container, GPU, temperature, swap, and network collectors
 - Automated rollback and postcondition verification
 - Real backup restore adapters
-- Governed business connectors for accounting, CRM, calendar, contracts, and grants
+- Governed business connectors for accounting, CRM, calendar, contracts, grants, and procurement
 - Governed content connectors for research, asset storage, platform analytics, and approved publishing
 - Governed customer-support connectors for help desks, CRM, identity, billing, and product telemetry
 - Approved message-delivery and customer-account mutation adapters
 - PII encryption, field-level access control, retention enforcement, and deletion workflows
+- Literature, patent, clinical-trial, regulatory, grant, laboratory, CRO, CDMO, market, LIMS, ELN, QMS, sample-registry, and manufacturing connectors
+- Encrypted chain-of-custody and scientific-asset management
+- Contract-document review, approved outbound communications, and electronic-signature integrations
+- Independent scientific, legal, regulatory, biosafety, ethics, quality, security, and IP review procedures
 - Domain-specific production evaluation suites
 - Cross-domain approved-artifact bridge
 - High availability, worker failover, and disaster recovery
 
-## Explicitly unsupported
+## Explicitly unsupported in the current release
 
-- Autonomous clinical or laboratory activity
-- Actionable human dosing
-- Autonomous biological ordering or synthesis
+- Self-administration or self-experimentation workflows for untested biomedical interventions
+- Actionable human dosing schedules for untested interventions
+- Evasion of required regulatory, ethics, biosafety, quality, or institutional oversight
+- Pathogen enhancement or increased virulence/transmissibility work
+- Fabricated scientific sources, results, raw data, certificates, quotations, metrics, financial representations, or customer evidence
+- Autonomous wet-lab execution by J.A.R.V.I.S
+- Laboratory contracts, financial commitments, or external execution without proper authority
 - Arbitrary shell execution
 - Autonomous destructive infrastructure changes
 - Unauthorized spending, contract acceptance, or ownership transfer
 - Direct customer-account or refund mutations
 - Automated customer communication, legal admissions, or policy waivers
 - Automated publication or paid promotion
-- Fabricated sources, quotations, metrics, financial representations, or customer evidence
-- Claims of production security, regulatory compliance, or benchmark superiority without independent evidence
+- Claims of production security, regulatory compliance, clinical authorization, or benchmark superiority without independent evidence
