@@ -39,37 +39,28 @@ Objective
 - Biomedical operation is research-support only: no autonomous ordering, synthesis, dosing, clinical use, or human experimentation.
 - Agent count is not a performance metric. Verified mission success is.
 
-## Version 0.5
+## Version 0.6
 
-Version 0.5 adds two persistent domain operating systems: **Business Operations** and **Content Production**.
+Version 0.6 adds the persistent **Governed Customer Support** operating system while preserving all capabilities delivered in versions 0.1 through 0.5.
 
-### Business Operations
+### Customer Support
 
-- Organizations with explicit owner authority
-- Projects, milestones, dependencies, bottlenecks, success criteria, and completion evidence
-- Enforced recommendation → decision → authorization → execution → verification lifecycle
-- Candidate and human-reviewed SOPs
-- Deterministic financial scenarios with preserved assumptions
-- Risk scoring, triggers, mitigations, and contingencies
-- Meeting records and assigned actions
-- Reproducible weekly operating reports
-- PostgreSQL persistence and append-only events
-- Approved operating state compiled into Business Operations missions
+- Isolated support workspaces, customer references, products, tickets, and append-only events
+- Versioned candidate, approved, rejected, and retired policies
+- Versioned troubleshooting playbooks with expected signals and escalation paths
+- Deterministic classification, priority, frustration, legal, security, privacy, and safety triage
+- Policy-version attachment to tickets
+- Approved-playbook troubleshooting plans
+- Human handoffs and escalation queues
+- Strict approval gates for refunds, account changes, policy exceptions, and legal responses
+- Record-only external completion with idempotency keys, evidence, and external references
+- Evidence-required ticket resolution
+- Deterministic support-quality scoring
+- Repeated-failure clustering for product investigation
+- PostgreSQL persistence
+- Governed support state compiled into Customer Support missions
 
-### Content Production
-
-- Brand voice, prohibited claims, required disclosures, and approved platforms
-- Candidate, approved, and rejected sources with credibility, rights, and locators
-- Reviewed briefs and claim-level draft evidence checks
-- Character-limit, required-message, disclosure, and prohibited-language enforcement
-- Human draft and publication approval gates
-- Record-only external publication completion; no automated publishing
-- Deterministic click-through, engagement, conversion, and cost-per-conversion calculations
-- Evidence-backed content experiments
-- PostgreSQL persistence and append-only events
-- Approved content state compiled into Content Production missions
-
-J.A.R.V.I.S v0.5 does not sign contracts, transfer money, hire or terminate staff, publish to social platforms, hold social-account credentials, purchase advertising, or approve unsupported claims.
+J.A.R.V.I.S v0.6 does not send customer messages, issue refunds, alter customer accounts, waive policy, make legal admissions, or hold help-desk credentials. Privileged actions require an approved policy and explicit human authorization. Completion by an authorized person or external system is recorded only with evidence.
 
 ## Quick start
 
@@ -102,6 +93,7 @@ INFRA_STORAGE_DRIVER=postgres
 ANALYTICS_STORAGE_DRIVER=postgres
 BUSINESS_STORAGE_DRIVER=postgres
 CONTENT_STORAGE_DRIVER=postgres
+SUPPORT_STORAGE_DRIVER=postgres
 PKM_SEMANTIC_INDEX=qdrant
 ```
 
@@ -112,31 +104,38 @@ npm run migrate
 npm run dev
 ```
 
-### Business Operations example
+### Customer Support example
+
+Create a governed support workspace:
 
 ```bash
-curl -X POST http://localhost:3000/v1/business/organizations \
+curl -X POST http://localhost:3000/v1/support/workspaces \
   -H 'content-type: application/json' \
   -d '{
-    "id":"bio-gene",
-    "name":"Bio-Gene Inc",
+    "id":"jarvis-support",
+    "name":"J.A.R.V.I.S Support",
     "owner":"Charles Castillo",
-    "currency":"USD",
-    "timezone":"America/New_York"
+    "defaultSlaMinutes":60,
+    "escalationTeams":["senior-support","security-escalation"]
   }'
 ```
 
-### Content Production example
+Create a candidate policy, then have an authorized reviewer approve it before operational use:
 
 ```bash
-curl -X POST http://localhost:3000/v1/content/brands \
+curl -X POST http://localhost:3000/v1/support/policies \
   -H 'content-type: application/json' \
   -d '{
-    "id":"charles-brand",
-    "name":"Charles Castillo",
-    "owner":"Charles Castillo",
-    "voicePrinciples":["clear","systems-oriented","evidence-backed"],
-    "approvedPlatforms":["LinkedIn"]
+    "id":"refund-policy-v1",
+    "workspaceId":"jarvis-support",
+    "name":"Refund policy",
+    "category":"refund",
+    "version":1,
+    "body":"Verified duplicate charges may be refunded after human approval.",
+    "sourceRef":"policy-manual:refund:1",
+    "effectiveFrom":"2026-01-01T00:00:00.000Z",
+    "requiresHumanApproval":true,
+    "approvedActionKinds":["refund"]
   }'
 ```
 
@@ -211,6 +210,32 @@ POST /v1/content/experiments
 POST /v1/content/experiments/:id/complete
 GET  /v1/content/context
 GET  /v1/content/events
+
+POST /v1/support/workspaces
+POST /v1/support/customers
+POST /v1/support/products
+POST /v1/support/policies
+POST /v1/support/policies/:id/review
+GET  /v1/support/policies
+POST /v1/support/playbooks
+POST /v1/support/playbooks/:id/review
+POST /v1/support/tickets
+GET  /v1/support/tickets
+POST /v1/support/tickets/:id/messages
+POST /v1/support/tickets/:id/triage
+POST /v1/support/tickets/:id/attach-policies
+POST /v1/support/tickets/:id/troubleshooting-plan
+POST /v1/support/tickets/:id/handoffs
+POST /v1/support/handoffs/:id/accept
+POST /v1/support/actions
+POST /v1/support/actions/:id/approve
+POST /v1/support/actions/:id/reject
+POST /v1/support/actions/:id/record-completion
+POST /v1/support/tickets/:id/resolve
+POST /v1/support/quality-reviews
+POST /v1/support/failure-clusters/rebuild
+GET  /v1/support/context
+GET  /v1/support/events
 ```
 
 ## Development commands
@@ -234,6 +259,7 @@ npm start
 - [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
 - [`docs/BUSINESS-OPERATIONS.md`](docs/BUSINESS-OPERATIONS.md)
 - [`docs/CONTENT-PRODUCTION.md`](docs/CONTENT-PRODUCTION.md)
+- [`docs/CUSTOMER-SUPPORT.md`](docs/CUSTOMER-SUPPORT.md)
 - [`docs/DOMAIN-BOUNDARIES.md`](docs/DOMAIN-BOUNDARIES.md)
 - [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
