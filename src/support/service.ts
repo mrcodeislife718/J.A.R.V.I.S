@@ -171,8 +171,9 @@ const classifyCategory = (text: string): { category: SupportCategory; reasons: s
 const frustrationScore = (text: string, customerMessageCount: number): { score: number; reasons: string[] } => {
   let score = 0;
   const reasons: string[] = [];
-  const severe = keywordMatches(text, ["furious", "unacceptable", "scam", "terrible", "worst", "ridiculous"]);
-  const moderate = keywordMatches(text, ["frustrated", "angry", "upset", "annoyed", "disappointed", "still not fixed"]);
+  const normalizedText = text.toLowerCase();
+  const severe = keywordMatches(normalizedText, ["furious", "unacceptable", "scam", "terrible", "worst", "ridiculous"]);
+  const moderate = keywordMatches(normalizedText, ["frustrated", "angry", "upset", "annoyed", "disappointed", "still not fixed"]);
   if (severe > 0) {
     score += Math.min(45, severe * 18);
     reasons.push("Severe frustration language detected");
@@ -474,13 +475,12 @@ export class SupportService {
 
   private triageFor(ticket: SupportTicket): SupportTriageResult {
     const customerMessages = ticket.messages.filter((message) => message.authorType === "customer");
-    const text = [ticket.subject, ticket.description, ...customerMessages.map((message) => message.body)]
-      .join("\n")
-      .toLowerCase();
-    const classification = classifyCategory(text);
-    const frustration = frustrationScore(text, customerMessages.length);
+    const rawText = [ticket.subject, ticket.description, ...customerMessages.map((message) => message.body)].join("\n");
+    const normalizedText = rawText.toLowerCase();
+    const classification = classifyCategory(normalizedText);
+    const frustration = frustrationScore(rawText, customerMessages.length);
     const priority = priorityFor(classification.category, frustration.score);
-    const legalRisk = classification.category === "legal" || text.includes("regulator") || text.includes("attorney");
+    const legalRisk = classification.category === "legal" || normalizedText.includes("regulator") || normalizedText.includes("attorney");
     const securityRisk = classification.category === "security";
     const safetyRisk = classification.category === "safety";
     const escalationRequired = legalRisk || securityRisk || safetyRisk || frustration.score >= 70;
@@ -707,7 +707,7 @@ export class SupportService {
       .filter((entity): entity is SupportAction => entity.entityType === "support-action")
       .find((action) => action.idempotencyKey === input.idempotencyKey);
     if (duplicate) return duplicate;
-    let policyId: string | null = input.policyId?.trim() || null;
+    const policyId: string | null = input.policyId?.trim() || null;
     if (policyId) {
       const policy = await this.policy(policyId);
       if (policy.workspaceId !== input.workspaceId) throw new Error("Policy belongs to another support workspace");
@@ -902,7 +902,9 @@ export class SupportService {
     const clusters: SupportFailureCluster[] = [];
     for (const [key, group] of groups) {
       if (group.length < 2) continue;
-      const sorted = [...group].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      const sorted = [...group].sort(
+        (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+      );
       const latest = sorted.at(-1) as SupportTicket;
       const severity: SupportPriority = group.some((ticket) => ticket.priority === "urgent")
         ? "urgent"
