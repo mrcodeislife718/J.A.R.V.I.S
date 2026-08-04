@@ -39,32 +39,37 @@ Objective
 - Biomedical operation is research-support only: no autonomous ordering, synthesis, dosing, clinical use, or human experimentation.
 - Agent count is not a performance metric. Verified mission success is.
 
-## Version 0.4
+## Version 0.5
 
-Version 0.4 adds the third durable domain system: **Governed Analytics**.
+Version 0.5 adds two persistent domain operating systems: **Business Operations** and **Content Production**.
 
-Implemented foundation:
+### Business Operations
 
-- Governed mission compiler, capability graph, verification, audit, and telemetry
-- Seven isolated domain policy manifests
-- Persistent Personal Knowledge workspaces with reviewed retrieval and exact-state resumption
-- Infrastructure fleet inventory, telemetry, alerts, workload routing, incidents, backups, and approval-gated actions
-- Persistent analytics data-source registry with sensitivity and access controls
-- Versioned schema snapshots with fingerprints
-- Conservative read-only SQL validation
-- Pluggable query-executor contract with a refusing default
-- Candidate, approved, rejected, and deprecated metric definitions
-- Deterministic metric calculations with hashed inputs
-- Dataset profiling and deterministic data-quality rules
-- Forecast evaluation against an explicit baseline
-- Source-to-result lineage across schemas, queries, metrics, quality checks, forecasts, and reports
-- Candidate and approved report definitions with missing-metric disclosure
-- PostgreSQL persistence for analytics state
-- Approved analytics state compiled into analytics mission context
+- Organizations with explicit owner authority
+- Projects, milestones, dependencies, bottlenecks, success criteria, and completion evidence
+- Enforced recommendation → decision → authorization → execution → verification lifecycle
+- Candidate and human-reviewed SOPs
+- Deterministic financial scenarios with preserved assumptions
+- Risk scoring, triggers, mitigations, and contingencies
+- Meeting records and assigned actions
+- Reproducible weekly operating reports
+- PostgreSQL persistence and append-only events
+- Approved operating state compiled into Business Operations missions
 
-The default analytics executor does **not** connect to external databases or run SQL. A deployment must inject a separately governed, read-only connector. Credential references remain opaque and are not placed into model context.
+### Content Production
 
-J.A.R.V.I.S does not yet claim production authentication, regulated-data certification, automatic schema crawling, built-in warehouse connectors, causal-inference automation, scheduled report delivery, remote privileged infrastructure execution, or autonomous laboratory activity.
+- Brand voice, prohibited claims, required disclosures, and approved platforms
+- Candidate, approved, and rejected sources with credibility, rights, and locators
+- Reviewed briefs and claim-level draft evidence checks
+- Character-limit, required-message, disclosure, and prohibited-language enforcement
+- Human draft and publication approval gates
+- Record-only external publication completion; no automated publishing
+- Deterministic click-through, engagement, conversion, and cost-per-conversion calculations
+- Evidence-backed content experiments
+- PostgreSQL persistence and append-only events
+- Approved content state compiled into Content Production missions
+
+J.A.R.V.I.S v0.5 does not sign contracts, transfer money, hire or terminate staff, publish to social platforms, hold social-account credentials, purchase advertising, or approve unsupported claims.
 
 ## Quick start
 
@@ -95,6 +100,8 @@ Set the desired adapters in `.env`:
 PKM_STORAGE_DRIVER=postgres
 INFRA_STORAGE_DRIVER=postgres
 ANALYTICS_STORAGE_DRIVER=postgres
+BUSINESS_STORAGE_DRIVER=postgres
+CONTENT_STORAGE_DRIVER=postgres
 PKM_SEMANTIC_INDEX=qdrant
 ```
 
@@ -105,60 +112,33 @@ npm run migrate
 npm run dev
 ```
 
-### Register the local machine
-
-Replace the development token in `.env`, then run:
+### Business Operations example
 
 ```bash
-npm run infra:agent:once
-```
-
-To keep sending heartbeats:
-
-```bash
-npm run infra:agent
-```
-
-Each approved worker machine points `INFRA_CONTROL_URL` at the J.A.R.V.I.S control layer and uses the configured `INFRA_AGENT_TOKEN`. Do not expose this bootstrap shared-token scheme to an untrusted network.
-
-### Persistent Personal Knowledge
-
-Create a workspace:
-
-```bash
-curl -X POST http://localhost:3000/v1/pkm/workspaces \
-  -H 'content-type: application/json' \
-  -d '{"name":"J.A.R.V.I.S","description":"Persistent project memory"}'
-```
-
-### Governed Analytics
-
-Register a source without exposing its credentials:
-
-```bash
-curl -X POST http://localhost:3000/v1/analytics/sources \
+curl -X POST http://localhost:3000/v1/business/organizations \
   -H 'content-type: application/json' \
   -d '{
-    "id":"company-analytics",
-    "name":"Company analytics",
-    "kind":"postgres",
-    "sensitivity":"confidential",
-    "requiresApproval":true,
-    "endpointLabel":"read-only reporting replica",
-    "credentialRef":"env:COMPANY_ANALYTICS_READONLY_URL",
-    "owner":"Charles Castillo"
+    "id":"bio-gene",
+    "name":"Bio-Gene Inc",
+    "owner":"Charles Castillo",
+    "currency":"USD",
+    "timezone":"America/New_York"
   }'
 ```
 
-Validate a query without executing it:
+### Content Production example
 
 ```bash
-curl -X POST http://localhost:3000/v1/analytics/sql/validate \
+curl -X POST http://localhost:3000/v1/content/brands \
   -H 'content-type: application/json' \
-  -d '{"sql":"SELECT customer_id, revenue FROM sales ORDER BY revenue DESC LIMIT 100"}'
+  -d '{
+    "id":"charles-brand",
+    "name":"Charles Castillo",
+    "owner":"Charles Castillo",
+    "voicePrinciples":["clear","systems-oriented","evidence-backed"],
+    "approvedPlatforms":["LinkedIn"]
+  }'
 ```
-
-Live query execution remains disabled until an approved read-only executor is installed.
 
 ## API groups
 
@@ -176,7 +156,6 @@ GET  /v1/missions/:id/audit
 
 POST /v1/pkm/workspaces
 GET  /v1/pkm/workspaces
-GET  /v1/pkm/workspaces/:id
 POST /v1/pkm/workspaces/:id/sources
 GET  /v1/pkm/workspaces/:id/search
 GET  /v1/pkm/workspaces/:id/resume
@@ -184,37 +163,54 @@ GET  /v1/pkm/workspaces/:id/timeline
 
 POST /v1/infrastructure/nodes
 POST /v1/infrastructure/nodes/:id/heartbeat
-GET  /v1/infrastructure/nodes
 GET  /v1/infrastructure/fleet
 POST /v1/infrastructure/schedule
 POST /v1/infrastructure/actions
 POST /v1/infrastructure/actions/:id/approve
 POST /v1/infrastructure/actions/:id/execute
-GET  /v1/infrastructure/alerts
-POST /v1/infrastructure/incidents
-POST /v1/infrastructure/backups
-POST /v1/infrastructure/backups/:id/verifications
 GET  /v1/infrastructure/events
 
 POST /v1/analytics/sources
-GET  /v1/analytics/sources
-POST /v1/analytics/sources/:id/schemas
-GET  /v1/analytics/sources/:id/schema
 POST /v1/analytics/sql/validate
 POST /v1/analytics/queries
-GET  /v1/analytics/queries
 POST /v1/analytics/metrics
 POST /v1/analytics/metrics/:id/approve
 POST /v1/analytics/metrics/:id/calculate
-GET  /v1/analytics/metrics/:id/observations
-POST /v1/analytics/quality/rules
 POST /v1/analytics/quality/runs
-POST /v1/analytics/profiles
 POST /v1/analytics/forecasts/evaluate
 POST /v1/analytics/reports
-POST /v1/analytics/reports/:id/approve
-GET  /v1/analytics/reports/:id/snapshot
 GET  /v1/analytics/lineage
+
+POST /v1/business/organizations
+POST /v1/business/projects
+PATCH /v1/business/projects/:id/status
+PATCH /v1/business/projects/:id/milestones/:milestoneId
+POST /v1/business/decisions
+POST /v1/business/decisions/:id/transitions
+POST /v1/business/sops
+POST /v1/business/sops/:id/review
+POST /v1/business/financial-scenarios
+POST /v1/business/risks
+POST /v1/business/meetings
+POST /v1/business/reports/weekly
+GET  /v1/business/context
+GET  /v1/business/events
+
+POST /v1/content/brands
+POST /v1/content/sources
+POST /v1/content/sources/:id/review
+POST /v1/content/briefs
+POST /v1/content/briefs/:id/review
+POST /v1/content/drafts
+POST /v1/content/drafts/:id/review
+POST /v1/content/publication-plans
+POST /v1/content/publication-plans/:id/approve
+POST /v1/content/publication-plans/:id/record-publication
+POST /v1/content/performance
+POST /v1/content/experiments
+POST /v1/content/experiments/:id/complete
+GET  /v1/content/context
+GET  /v1/content/events
 ```
 
 ## Development commands
@@ -236,6 +232,8 @@ npm start
 - [`docs/PERSONAL-KNOWLEDGE.md`](docs/PERSONAL-KNOWLEDGE.md)
 - [`docs/INFRASTRUCTURE-ADMINISTRATION.md`](docs/INFRASTRUCTURE-ADMINISTRATION.md)
 - [`docs/ANALYTICS.md`](docs/ANALYTICS.md)
+- [`docs/BUSINESS-OPERATIONS.md`](docs/BUSINESS-OPERATIONS.md)
+- [`docs/CONTENT-PRODUCTION.md`](docs/CONTENT-PRODUCTION.md)
 - [`docs/DOMAIN-BOUNDARIES.md`](docs/DOMAIN-BOUNDARIES.md)
 - [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)

@@ -1,4 +1,6 @@
 import type { AnalyticsMissionContext } from "../analytics/types.js";
+import type { BusinessMissionContext } from "../business/types.js";
+import type { ContentMissionContext } from "../content/types.js";
 import { getDomainManifest } from "../domains/registry.js";
 import type { InfrastructureMissionContext } from "../infrastructure/types.js";
 import type { PkmResumePacket } from "../pkm/types.js";
@@ -15,6 +17,14 @@ export interface InfrastructureContextProvider {
 
 export interface AnalyticsContextProvider {
   buildMissionContext(sourceId?: string, metricId?: string): Promise<AnalyticsMissionContext>;
+}
+
+export interface BusinessContextProvider {
+  buildMissionContext(organizationId?: string): Promise<BusinessMissionContext>;
+}
+
+export interface ContentContextProvider {
+  buildMissionContext(brandId?: string, draftId?: string): Promise<ContentMissionContext>;
 }
 
 const compactItems = (
@@ -71,10 +81,24 @@ const resumeEvidence = (packet: PkmResumePacket): EvidenceReference[] => {
   });
 };
 
+const appendGovernedContext = (
+  workingState: string[],
+  evidence: EvidenceReference[],
+  uncertainties: ContextPacket["uncertainties"],
+  label: string,
+  context: { summary: string; evidence: Array<{ id: string; source: string; locator: string; retrievedAt: string }>; uncertainties: string[] },
+): void => {
+  workingState.push(`${label}:\n${context.summary}`);
+  evidence.push(...context.evidence.map((reference) => ({ ...reference, trust: "internal" as const })));
+  uncertainties.push(...context.uncertainties.map((statement) => ({ label: "missing" as const, statement })));
+};
+
 export class ContextCompiler {
   private persistentContextProvider: PersistentContextProvider | null = null;
   private infrastructureContextProvider: InfrastructureContextProvider | null = null;
   private analyticsContextProvider: AnalyticsContextProvider | null = null;
+  private businessContextProvider: BusinessContextProvider | null = null;
+  private contentContextProvider: ContentContextProvider | null = null;
 
   constructor(private readonly memoryRepository: MemoryRepository) {}
 
@@ -88,6 +112,14 @@ export class ContextCompiler {
 
   setAnalyticsContextProvider(provider: AnalyticsContextProvider): void {
     this.analyticsContextProvider = provider;
+  }
+
+  setBusinessContextProvider(provider: BusinessContextProvider): void {
+    this.businessContextProvider = provider;
+  }
+
+  setContentContextProvider(provider: ContentContextProvider): void {
+    this.contentContextProvider = provider;
   }
 
   async compile(mission: MissionRecord): Promise<ContextPacket> {
@@ -133,18 +165,15 @@ export class ContextCompiler {
     if (mission.request.domain === "infrastructure-administration" && this.infrastructureContextProvider) {
       const requestedNodeId = mission.request.inputs.nodeId;
       try {
-        const context = await this.infrastructureContextProvider.buildMissionContext(
-          typeof requestedNodeId === "string" ? requestedNodeId : undefined,
+        appendGovernedContext(
+          workingState,
+          evidence,
+          uncertainties,
+          "Verified infrastructure control-plane state",
+          await this.infrastructureContextProvider.buildMissionContext(
+            typeof requestedNodeId === "string" ? requestedNodeId : undefined,
+          ),
         );
-        workingState.push(`Verified infrastructure control-plane state:\n${context.summary}`);
-        evidence.push(...context.evidence.map((reference) => ({
-          ...reference,
-          trust: "internal" as const,
-        })));
-        uncertainties.push(...context.uncertainties.map((statement) => ({
-          label: "missing" as const,
-          statement,
-        })));
       } catch (error) {
         uncertainties.push({
           label: "missing",
@@ -157,23 +186,62 @@ export class ContextCompiler {
       const requestedSourceId = mission.request.inputs.sourceId;
       const requestedMetricId = mission.request.inputs.metricId;
       try {
-        const context = await this.analyticsContextProvider.buildMissionContext(
-          typeof requestedSourceId === "string" ? requestedSourceId : undefined,
-          typeof requestedMetricId === "string" ? requestedMetricId : undefined,
+        appendGovernedContext(
+          workingState,
+          evidence,
+          uncertainties,
+          "Governed analytics registry and evidence state",
+          await this.analyticsContextProvider.buildMissionContext(
+            typeof requestedSourceId === "string" ? requestedSourceId : undefined,
+            typeof requestedMetricId === "string" ? requestedMetricId : undefined,
+          ),
         );
-        workingState.push(`Governed analytics registry and evidence state:\n${context.summary}`);
-        evidence.push(...context.evidence.map((reference) => ({
-          ...reference,
-          trust: "internal" as const,
-        })));
-        uncertainties.push(...context.uncertainties.map((statement) => ({
-          label: "missing" as const,
-          statement,
-        })));
       } catch (error) {
         uncertainties.push({
           label: "missing",
           statement: `Analytics context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+        });
+      }
+    }
+
+    if (mission.request.domain === "business-operations" && this.businessContextProvider) {
+      const organizationId = mission.request.inputs.organizationId;
+      try {
+        appendGovernedContext(
+          workingState,
+          evidence,
+          uncertainties,
+          "Governed business operating state",
+          await this.businessContextProvider.buildMissionContext(
+            typeof organizationId === "string" ? organizationId : undefined,
+          ),
+        );
+      } catch (error) {
+        uncertainties.push({
+          label: "missing",
+          statement: `Business context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
+        });
+      }
+    }
+
+    if (mission.request.domain === "content-production" && this.contentContextProvider) {
+      const brandId = mission.request.inputs.brandId;
+      const draftId = mission.request.inputs.draftId;
+      try {
+        appendGovernedContext(
+          workingState,
+          evidence,
+          uncertainties,
+          "Governed content production state",
+          await this.contentContextProvider.buildMissionContext(
+            typeof brandId === "string" ? brandId : undefined,
+            typeof draftId === "string" ? draftId : undefined,
+          ),
+        );
+      } catch (error) {
+        uncertainties.push({
+          label: "missing",
+          statement: `Content context could not be loaded: ${error instanceof Error ? error.message : "unknown error"}`,
         });
       }
     }

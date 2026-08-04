@@ -44,6 +44,8 @@ const envSchema = z.object({
   ANALYTICS_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
   ANALYTICS_MAX_QUERY_ROWS: z.coerce.number().int().min(1).max(1_000_000).default(10_000),
   ANALYTICS_QUERY_TIMEOUT_MS: z.coerce.number().int().min(100).max(600_000).default(30_000),
+  BUSINESS_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
+  CONTENT_STORAGE_DRIVER: z.enum(["memory", "postgres"]).default("memory"),
 });
 
 export type RuntimeConfig = z.infer<typeof envSchema>;
