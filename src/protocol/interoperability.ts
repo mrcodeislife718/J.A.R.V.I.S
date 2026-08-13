@@ -14,7 +14,7 @@ export interface IntegrityRecord { algorithm: "sha256" | string; contentHash: st
 export interface FailureRecord { failureId: string; failureClass: FailureClass; code: string; message: string; retryable: boolean; details: Record<string, unknown>; }
 
 export interface RuntimeRequest {
-  protocolVersion: "1.1";
+  protocolVersion: "1.2";
   requestId: string;
   eventId: string;
   causalParentIds: string[];
@@ -37,7 +37,7 @@ export interface RuntimeRequest {
 }
 
 export interface RuntimeReceipt {
-  protocolVersion: "1.1";
+  protocolVersion: "1.2";
   requestId: string;
   eventId: string;
   causalParentIds: string[];
